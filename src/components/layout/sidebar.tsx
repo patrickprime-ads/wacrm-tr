@@ -9,18 +9,22 @@ import { useTotalUnread } from "@/hooks/use-total-unread";
 import { useTranslations } from 'next-intl';
 import {
   Crown,
+  Bot,
   GitBranch,
   LayoutDashboard,
   LogOut,
   MessageSquare,
+  MessageCircle,
   Radio,
   Settings,
   Shield,
+  Target,
   User,
   UserCog,
   Users,
   UsersRound,
   Workflow,
+  Webhook,
   X,
   Zap,
 } from "lucide-react";
@@ -106,9 +110,13 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
   { href: "/inbox", label: t('inbox'), icon: MessageSquare },
   { href: "/contacts", label: t('contacts'), icon: Users },
   { href: "/pipelines", label: t('pipelines'), icon: GitBranch },
-  { href: "/broadcasts", label: t('broadcasts'), icon: Radio },
+  { href: "/lead-tracking", label: "Tracking de Leads", icon: Target },
+  { href: "/ai-agents", label: "Agentes IA", icon: Bot },
+  { href: "/whatsapp-business", label: "WhatsApp Business", icon: MessageCircle },
+  { href: "/broadcasts", label: "Disparos", icon: Radio },
   { href: "/automations", label: t('automations'), icon: Zap },
   { href: "/flows", label: t('flows'), icon: Workflow, beta: true },
+  { href: "/integrations", label: "Integrações", icon: Webhook },
 ];
 
 const bottomNavItems = [

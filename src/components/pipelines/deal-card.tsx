@@ -1,7 +1,7 @@
 "use client";
 
 import type { Deal, PipelineStage } from "@/types";
-import { Calendar, Check, X } from "lucide-react";
+import { Building2, Calendar, Check, GripVertical, X } from "lucide-react";
 import { formatCurrency } from "@/lib/currency";
 
 interface DealCardProps {
@@ -12,10 +12,9 @@ interface DealCardProps {
 }
 
 function formatDate(dateStr: string) {
-  return new Date(dateStr).toLocaleDateString("en-US", {
+  return new Date(dateStr).toLocaleDateString("pt-BR", {
+    day: "2-digit",
     month: "short",
-    day: "numeric",
-    year: "numeric",
   });
 }
 
@@ -39,7 +38,7 @@ export function DealCard({ deal, stage, onEdit, isOverlay }: DealCardProps) {
         e.stopPropagation();
         onEdit(deal);
       }}
-      className={`group relative w-full cursor-pointer rounded-xl border border-border/50 bg-muted/70 pl-4 pr-3 py-3 text-left shadow-sm transition-all ${
+      className={`group relative w-full cursor-grab rounded-xl border border-border/70 bg-card-2/80 py-3 pl-4 pr-3 text-left shadow-sm transition-all active:cursor-grabbing ${
         isOverlay
           ? "shadow-xl"
           : "hover:-translate-y-0.5 hover:border-border hover:bg-muted hover:shadow-lg"
@@ -56,19 +55,29 @@ export function DealCard({ deal, stage, onEdit, isOverlay }: DealCardProps) {
         <h4 className="flex-1 text-sm font-semibold leading-snug text-foreground break-words">
           {deal.title}
         </h4>
+        {deal.status === "open" && (
+          <GripVertical className="h-4 w-4 shrink-0 text-muted-foreground/40 transition-colors group-hover:text-muted-foreground" />
+        )}
         {deal.status === "won" && (
           <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-semibold text-primary">
             <Check className="h-3 w-3" />
-            Won
+            Ganho
           </span>
         )}
         {deal.status === "lost" && (
           <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-red-500/15 px-2 py-0.5 text-[10px] font-semibold text-red-400">
             <X className="h-3 w-3" />
-            Lost
+            Perdido
           </span>
         )}
       </div>
+
+      {deal.contact?.company && (
+        <div className="mt-2 flex items-center gap-1.5 text-[11px] text-muted-foreground">
+          <Building2 className="h-3 w-3" />
+          <span className="truncate">{deal.contact.company}</span>
+        </div>
+      )}
 
       {/* Contact row */}
       <div className="mt-2 flex items-center gap-2">

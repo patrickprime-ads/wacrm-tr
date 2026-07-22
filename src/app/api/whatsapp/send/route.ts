@@ -21,6 +21,7 @@ import {
 } from '@/lib/rate-limit'
 import type { MessageTemplate } from '@/types'
 import { isMessageTemplate } from '@/lib/whatsapp/template-row-guard'
+import { scheduleFollowup } from '@/lib/ai/followups'
 
 export async function POST(request: Request) {
   try {
@@ -397,6 +398,8 @@ export async function POST(request: Request) {
         updated_at: new Date().toISOString(),
       })
       .eq('id', conversation_id)
+
+    await scheduleFollowup(supabaseAdmin(), accountId, conversation_id, contact.id)
 
     // Pause any active Flow run for this contact — the agent stepping
     // in is the strongest "yield, human is here" signal. See PR #2

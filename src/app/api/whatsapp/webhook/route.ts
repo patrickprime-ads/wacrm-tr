@@ -1,7 +1,9 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { decrypt, encrypt, isLegacyFormat } from '@/lib/whatsapp/encryption'
-import { getMediaUrl, downloadMedia } from '@/lib/whatsapp/meta-api'
+import { getMediaUrl } from '@/lib/whatsapp/meta-api'
+import { dispatchAutoReply } from '@/lib/ai/auto-reply'
+import { cancelFollowup } from '@/lib/ai/followups'
 import { normalizePhone } from '@/lib/whatsapp/phone-utils'
 import { findExistingContact, isUniqueViolation } from '@/lib/contacts/dedupe'
 import { verifyMetaWebhookSignature } from '@/lib/whatsapp/webhook-signature'
@@ -275,7 +277,8 @@ async function processWebhook(body: { entry?: WhatsAppWebhookEntry[] }) {
           // inserts that need it for NOT NULL FK compliance. Always
           // the admin who saved the WhatsApp config.
           config.user_id,
-          decryptedAccessToken
+          decryptedAccessToken,
+          phoneNumberId,
         )
       }
     }
@@ -509,7 +512,8 @@ async function processMessage(
   // (contacts, conversations). Always the admin who saved the
   // WhatsApp config; the choice is arbitrary post-017 but stable.
   configOwnerUserId: string,
-  accessToken: string
+  accessToken: string,
+  phoneNumberId: string,
 ) {
   const senderPhone = normalizePhone(message.from)
   const contactName = contact.profile.name
@@ -616,6 +620,9 @@ async function processMessage(
     return
   }
 
+  // Any new customer reply stops the pending AI follow-up immediately.
+  await cancelFollowup(supabaseAdmin(), conversation.id)
+
   // Update conversation
   const { error: convError } = await supabaseAdmin()
     .from('conversations')
@@ -676,6 +683,22 @@ async function processMessage(
     isFirstInboundMessage,
   })
   const flowConsumed = flowResult.consumed
+
+  // Auto-reply is opt-in per conversation and fail-closed. It runs only
+  // when no Fluxo consumed this message; the dispatcher enforces business
+  // hours, daily limits, active-agent state and human-assignment guards.
+  if (!flowConsumed) {
+    void dispatchAutoReply({
+      db: supabaseAdmin(),
+      accountId,
+      userId: configOwnerUserId,
+      conversationId: conversation.id,
+      contactId: contactRecord.id,
+      contactPhone: senderPhone,
+      phoneNumberId,
+      accessToken,
+    }).catch((error) => console.error('[ai-auto-reply] dispatch failed:', error))
+  }
 
   // Fire any automations that react to this webhook event. All dispatches
   // run here (not earlier) so the contact, conversation, and inbound
@@ -910,6 +933,8 @@ async function findOrCreateContact(
       user_id: configOwnerUserId,
       phone,
       name: name || phone,
+      lead_source: 'whatsapp',
+      source_detail: 'Meta WhatsApp Cloud API',
     })
     .select()
     .single()

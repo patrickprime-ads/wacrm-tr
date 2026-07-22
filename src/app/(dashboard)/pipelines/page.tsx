@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { createClient } from "@/lib/supabase/client";
 import type { Pipeline, PipelineStage, Deal } from "@/types";
 import { PipelineBoard } from "@/components/pipelines/pipeline-board";
@@ -24,7 +24,15 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { GitBranch, Plus, ChevronDown, Settings } from "lucide-react";
+import {
+  GitBranch,
+  Plus,
+  ChevronDown,
+  Settings,
+  Search,
+  RefreshCw,
+  Sparkles,
+} from "lucide-react";
 import { toast } from "sonner";
 import { useCan } from "@/hooks/use-can";
 import { useAuth } from "@/hooks/use-auth";
@@ -54,6 +62,8 @@ export default function PipelinesPage() {
   const [stages, setStages] = useState<PipelineStage[]>([]);
   const [deals, setDeals] = useState<Deal[]>([]);
   const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
+  const [refreshing, setRefreshing] = useState(false);
 
   // Dialog / sheet state
   const [newPipelineOpen, setNewPipelineOpen] = useState(false);
@@ -172,7 +182,6 @@ export default function PipelinesPage() {
   // callbacks (not synchronous in the effect body).
   useEffect(() => {
     if (!selectedPipelineId) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setStages([]);
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setDeals([]);
@@ -293,6 +302,27 @@ export default function PipelinesPage() {
   }
 
   const selectedPipeline = pipelines.find((p) => p.id === selectedPipelineId);
+  const visibleDeals = useMemo(() => {
+    const query = search.trim().toLocaleLowerCase("pt-BR");
+    if (!query) return deals;
+
+    return deals.filter((deal) =>
+      [
+        deal.title,
+        deal.contact?.name,
+        deal.contact?.phone,
+        deal.contact?.company,
+        deal.assignee?.full_name,
+      ].some((value) => value?.toLocaleLowerCase("pt-BR").includes(query)),
+    );
+  }, [deals, search]);
+
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await Promise.all([refreshStages(), refreshDeals()]);
+    setRefreshing(false);
+    toast.success("Funil atualizado");
+  }, [refreshDeals, refreshStages]);
 
   if (loading) {
     return (
@@ -311,10 +341,21 @@ export default function PipelinesPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       {/* Header */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
+      <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
+        <div>
+          <div className="mb-1 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-primary">
+            <Sparkles className="h-3.5 w-3.5" />
+            Central de vendas
+          </div>
+          <h1 className="text-2xl font-bold tracking-tight text-foreground">Pipeline de leads</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Acompanhe oportunidades, prioridades e receita em um só lugar.
+          </p>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
           {/* Pipeline selector dropdown */}
           <DropdownMenu>
             <DropdownMenuTrigger
@@ -361,9 +402,6 @@ export default function PipelinesPage() {
               )}
             </DropdownMenuContent>
           </DropdownMenu>
-        </div>
-
-        <div className="flex items-center gap-2">
           <GatedButton
             variant="outline"
             canAct={canEditSettings}
@@ -410,9 +448,39 @@ export default function PipelinesPage() {
       ) : (
         <>
           <PipelineAnalytics stages={stages} deals={deals} />
+          <div className="flex flex-col gap-3 rounded-xl border border-border/80 bg-card/70 p-3 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+            <div className="relative w-full sm:max-w-sm">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder="Buscar lead, empresa ou responsável..."
+                aria-label="Buscar no funil"
+                className="h-9 border-border bg-background/70 pl-9"
+              />
+            </div>
+            <div className="flex items-center justify-between gap-3 sm:justify-end">
+              <span className="text-xs text-muted-foreground">
+                {search
+                  ? `${visibleDeals.length} de ${deals.length} oportunidades`
+                  : `${deals.length} oportunidades no funil`}
+              </span>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={handleRefresh}
+                disabled={refreshing}
+                className="border-border bg-background/60"
+              >
+                <RefreshCw className={`h-3.5 w-3.5 ${refreshing ? "animate-spin" : ""}`} />
+                Atualizar
+              </Button>
+            </div>
+          </div>
           <PipelineBoard
             stages={stages}
-            deals={deals}
+            deals={visibleDeals}
             onDealMoved={handleDealMoved}
             onAddDeal={handleAddDeal}
             onEditDeal={handleEditDeal}

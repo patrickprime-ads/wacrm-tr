@@ -10,21 +10,34 @@ import {
   Mail,
   Copy,
   Check,
-  User,
   Tag as TagIcon,
   DollarSign,
   StickyNote,
   Plus,
+  Sparkles,
+  Loader2,
+  Target,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { format } from "date-fns";
+import { toast } from "sonner";
 
 interface ContactSidebarProps {
   contact: Contact | null;
+  conversationId?: string | null;
 }
 
-export function ContactSidebar({ contact }: ContactSidebarProps) {
+interface ContactInsight {
+  summary: string;
+  interest_level: "cold" | "warm" | "hot";
+  score: number;
+  next_action: string;
+  signals: string[];
+  analyzed_at: string;
+}
+
+export function ContactSidebar({ contact, conversationId }: ContactSidebarProps) {
   const { accountId } = useAuth();
   const [copied, setCopied] = useState(false);
   const [deals, setDeals] = useState<Deal[]>([]);
@@ -32,6 +45,8 @@ export function ContactSidebar({ contact }: ContactSidebarProps) {
   const [tags, setTags] = useState<(Tag & { contact_tag_id: string })[]>([]);
   const [newNote, setNewNote] = useState("");
   const [addingNote, setAddingNote] = useState(false);
+  const [insight, setInsight] = useState<ContactInsight | null>(null);
+  const [analyzing, setAnalyzing] = useState(false);
 
   const fetchContactData = useCallback(async () => {
     if (!contact) return;
@@ -39,7 +54,7 @@ export function ContactSidebar({ contact }: ContactSidebarProps) {
     const supabase = createClient();
 
     // Fetch deals, notes, and tags in parallel
-    const [dealsRes, notesRes, tagsRes] = await Promise.all([
+    const [dealsRes, notesRes, tagsRes, insightRes] = await Promise.all([
       supabase
         .from("deals")
         .select("*, stage:pipeline_stages(*)")
@@ -54,6 +69,11 @@ export function ContactSidebar({ contact }: ContactSidebarProps) {
         .from("contact_tags")
         .select("id, tag_id, tags(*)")
         .eq("contact_id", contact.id),
+      supabase
+        .from("ai_contact_insights")
+        .select("summary, interest_level, score, next_action, signals, analyzed_at")
+        .eq("contact_id", contact.id)
+        .maybeSingle(),
     ]);
 
     if (dealsRes.data) setDeals(dealsRes.data);
@@ -67,6 +87,7 @@ export function ContactSidebar({ contact }: ContactSidebarProps) {
         }));
       setTags(mapped);
     }
+    setInsight((insightRes.data as ContactInsight | null) ?? null);
   }, [contact]);
 
   // Load on contact change. setContactData/setTags run inside async
@@ -115,6 +136,21 @@ export function ContactSidebar({ contact }: ContactSidebarProps) {
     setAddingNote(false);
   }, [contact, newNote, accountId]);
 
+  const analyzeContact = useCallback(async () => {
+    if (!contact || !conversationId) return;
+    setAnalyzing(true);
+    const response = await fetch("/api/ai/contact-insight", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ contact_id: contact.id, conversation_id: conversationId }),
+    });
+    const body = await response.json().catch(() => ({}));
+    setAnalyzing(false);
+    if (!response.ok) return toast.error(body.error ?? "Não foi possível analisar o lead");
+    setInsight(body.insight as ContactInsight);
+    toast.success("Inteligência do lead atualizada");
+  }, [contact, conversationId]);
+
   if (!contact) {
     return (
       <div className="flex h-full w-70 items-center justify-center border-l border-border bg-card">
@@ -134,11 +170,16 @@ export function ContactSidebar({ contact }: ContactSidebarProps) {
           <div className="flex flex-col items-center text-center">
             <div className="flex h-16 w-16 items-center justify-center rounded-full bg-muted text-lg font-semibold text-foreground">
               {contact.avatar_url ? (
-                <img
-                  src={contact.avatar_url}
-                  alt={displayName}
-                  className="h-16 w-16 rounded-full object-cover"
-                />
+                <>
+                  {/* Contact avatars may come from arbitrary customer-hosted HTTPS
+                      URLs, so next/image cannot safely enumerate their hosts. */}
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={contact.avatar_url}
+                    alt={displayName}
+                    className="h-16 w-16 rounded-full object-cover"
+                  />
+                </>
               ) : (
                 initials
               )}
@@ -171,6 +212,30 @@ export function ContactSidebar({ contact }: ContactSidebarProps) {
                 <Mail className="h-4 w-4 text-muted-foreground" />
                 <span className="truncate">{contact.email}</span>
               </div>
+            )}
+          </div>
+
+          {/* Divider */}
+          <div className="my-4 border-t border-border" />
+
+          {/* AI lead intelligence */}
+          <div className="rounded-xl border border-primary/20 bg-primary/5 p-3">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-primary"><Sparkles className="h-3.5 w-3.5" /> Inteligência do lead</div>
+              <Button variant="ghost" size="sm" onClick={() => void analyzeContact()} disabled={analyzing || !conversationId} className="h-7 px-2 text-[10px] text-primary hover:bg-primary/10">
+                {analyzing ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
+                {insight ? "Atualizar" : "Analisar"}
+              </Button>
+            </div>
+            {insight ? (
+              <div className="mt-3 space-y-3">
+                <div className="flex items-center gap-3"><div className="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-full border-4 border-primary/20 text-sm font-bold text-primary">{insight.score}</div><div><span className={cn("rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase", insight.interest_level === "hot" ? "bg-red-500/15 text-red-400" : insight.interest_level === "warm" ? "bg-amber-500/15 text-amber-400" : "bg-sky-500/15 text-sky-400")}>{insight.interest_level === "hot" ? "Quente" : insight.interest_level === "warm" ? "Morno" : "Frio"}</span><p className="mt-1 text-[10px] text-muted-foreground">Score comercial</p></div></div>
+                <p className="text-xs leading-relaxed text-foreground/90">{insight.summary}</p>
+                <div className="rounded-lg bg-card/60 p-2.5"><p className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider text-primary"><Target className="h-3 w-3" /> Próxima ação</p><p className="mt-1 text-xs text-muted-foreground">{insight.next_action}</p></div>
+                {insight.signals.length > 0 && <div className="flex flex-wrap gap-1">{insight.signals.map((signal) => <span key={signal} className="rounded-full bg-muted px-2 py-0.5 text-[9px] text-muted-foreground">{signal}</span>)}</div>}
+              </div>
+            ) : (
+              <p className="mt-2 text-xs leading-relaxed text-muted-foreground">Resuma a conversa, identifique o interesse e receba uma próxima ação comercial.</p>
             )}
           </div>
 

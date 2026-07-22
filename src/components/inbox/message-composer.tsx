@@ -18,6 +18,7 @@ import {
   Square,
   X,
   Loader2,
+  Sparkles,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { GatedButton } from "@/components/ui/gated-button";
@@ -91,13 +92,13 @@ interface MediaDraft {
 }
 
 interface MessageComposerProps {
-  conversationId: string;
   sessionExpired: boolean;
   onSend: (text: string, replyToId?: string) => void;
   onSendMedia: (payload: SendMediaPayload) => void;
   onOpenTemplates: () => void;
   replyTo?: ReplyDraft | null;
   onClearReply?: () => void;
+  onGenerateAi?: () => Promise<string | null>;
 }
 
 function formatDuration(seconds: number): string {
@@ -112,16 +113,17 @@ function formatDuration(seconds: number): string {
 const OPUS_ENCODER_PATH = "/opus/encoderWorker.min.js";
 
 export function MessageComposer({
-  conversationId,
   sessionExpired,
   onSend,
   onSendMedia,
   onOpenTemplates,
   replyTo,
   onClearReply,
+  onGenerateAi,
 }: MessageComposerProps) {
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
+  const [generatingAi, setGeneratingAi] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Media attachment state. `draft` holds an uploaded-but-not-yet-sent
@@ -160,6 +162,20 @@ export function MessageComposer({
   const readOnly = !canSend;
   // Media (like free-form text) is only allowed inside the 24h window.
   const inputsDisabled = readOnly || sessionExpired;
+
+  const generateAi = useCallback(async () => {
+    if (!onGenerateAi || generatingAi || inputsDisabled) return;
+    setGeneratingAi(true);
+    try {
+      const suggestion = await onGenerateAi();
+      if (suggestion) {
+        setText(suggestion);
+        requestAnimationFrame(() => textareaRef.current?.focus());
+      }
+    } finally {
+      setGeneratingAi(false);
+    }
+  }, [onGenerateAi, generatingAi, inputsDisabled]);
 
   const clearTimer = useCallback(() => {
     if (timerRef.current !== null) {
@@ -522,6 +538,21 @@ export function MessageComposer({
           >
             <LayoutTemplate className="h-4 w-4" />
           </GatedButton>
+
+          {onGenerateAi && (
+            <GatedButton
+              variant="ghost"
+              size="sm"
+              canAct={!readOnly}
+              gateReason="gerar respostas com IA"
+              disabled={inputsDisabled || generatingAi}
+              onClick={() => void generateAi()}
+              title="Sugerir resposta com IA"
+              className="h-9 w-9 shrink-0 p-0 text-primary hover:bg-primary/10 hover:text-primary"
+            >
+              {generatingAi ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+            </GatedButton>
+          )}
 
           <textarea
             ref={textareaRef}

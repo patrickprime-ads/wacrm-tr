@@ -10,6 +10,8 @@ import {
   Trophy,
   XCircle,
   Info,
+  Sparkles,
+  ArrowRight,
 } from "lucide-react";
 import {
   Tooltip,
@@ -83,12 +85,17 @@ export function PipelineAnalytics({ stages, deals }: PipelineAnalyticsProps) {
       weightedValue,
       wonThisMonth,
       lostThisMonth,
+      conversionRate:
+        wonThisMonth + lostThisMonth > 0
+          ? Math.round((wonThisMonth / (wonThisMonth + lostThisMonth)) * 100)
+          : 0,
     };
   }, [deals, sortedStages]);
 
   return (
     <TooltipProvider>
-      <div className="grid grid-cols-2 gap-3 rounded-xl border border-border bg-card/60 p-4 sm:grid-cols-3 xl:grid-cols-6">
+      <div className="overflow-hidden rounded-2xl border border-border/80 bg-card/70 shadow-sm">
+        <div className="grid grid-cols-2 gap-px bg-border/70 sm:grid-cols-3 xl:grid-cols-6">
         <Metric
           icon={<BarChart3 className="h-4 w-4 text-muted-foreground" />}
           label="Total de negócios"
@@ -125,6 +132,30 @@ export function PipelineAnalytics({ stages, deals }: PipelineAnalyticsProps) {
           value={String(stats.lostThisMonth)}
           tooltip="Negócios marcados como perdidos desde o primeiro dia do mês atual."
         />
+        </div>
+        <div className="flex flex-col gap-3 border-t border-border bg-gradient-to-r from-primary/10 via-primary/5 to-transparent px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-start gap-3">
+            <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/15 text-primary">
+              <Sparkles className="h-4 w-4" />
+            </span>
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wider text-primary">Radar inteligente</p>
+              <p className="mt-0.5 text-sm text-foreground">
+                {stats.totalCount === 0
+                  ? "Adicione o primeiro lead para começar a gerar sinais comerciais."
+                  : stats.conversionRate >= 50
+                    ? `Conversão de ${stats.conversionRate}% no mês. Priorize as oportunidades mais próximas do fechamento.`
+                    : stats.lostThisMonth > stats.wonThisMonth
+                      ? "As perdas superam os ganhos neste mês. Revise os leads parados e os motivos de perda."
+                      : `Há ${stats.totalCount} oportunidades ativas. Avance primeiro as de maior valor ponderado.`}
+              </p>
+            </div>
+          </div>
+          <span className="flex shrink-0 items-center gap-1 text-xs font-medium text-muted-foreground">
+            Conversão mensal <strong className="text-foreground">{stats.conversionRate}%</strong>
+            <ArrowRight className="h-3.5 w-3.5" />
+          </span>
+        </div>
       </div>
     </TooltipProvider>
   );
@@ -142,7 +173,7 @@ function Metric({
   tooltip: string;
 }) {
   return (
-    <div className="rounded-lg bg-muted/50 p-3">
+    <div className="bg-card p-4">
       <div className="flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
         {icon}
         <span>{label}</span>

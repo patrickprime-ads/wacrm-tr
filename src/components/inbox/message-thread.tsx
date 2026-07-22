@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
+import { useCan } from "@/hooks/use-can";
 import { cn } from "@/lib/utils";
 import type {
   Conversation,
@@ -23,9 +24,22 @@ import {
   RefreshCw,
   PanelRightOpen,
   PanelRightClose,
+  Bot,
 } from "lucide-react";
 import { format, isToday, isYesterday, differenceInHours } from "date-fns";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -33,7 +47,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { MessageBubble } from "./message-bubble";
 import { MessageActions } from "./message-actions";
 import {
@@ -50,6 +63,12 @@ interface ReplyDraft {
   id: string;
   authorLabel: string;
   preview: string;
+}
+
+interface InboxAiAgent {
+  id: string;
+  name: string;
+  role: string;
 }
 
 function renderTemplateBody(body: string, params: string[]): string {
@@ -162,11 +181,23 @@ export function MessageThread({
   contactPanelOpen,
   onToggleContactPanel,
 }: MessageThreadProps) {
-  const { user } = useAuth();
+  const { user, accountId } = useAuth();
+  const canEditAi = useCan("edit-settings");
   const [loading, setLoading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const [templateModalOpen, setTemplateModalOpen] = useState(false);
   const [profiles, setProfiles] = useState<Profile[]>([]);
+  const [aiAgents, setAiAgents] = useState<InboxAiAgent[]>([]);
+  const [selectedAiAgentId, setSelectedAiAgentId] = useState<string | null>(null);
+  const [aiMode, setAiMode] = useState<"off" | "assist" | "auto">("off");
+  const [autoSettingsOpen, setAutoSettingsOpen] = useState(false);
+  const [savingAutoSettings, setSavingAutoSettings] = useState(false);
+  const [autoSettings, setAutoSettings] = useState({
+    max_auto_replies_24h: 3,
+    active_hour_start: 8,
+    active_hour_end: 20,
+    require_unassigned: true,
+  });
   const [reactions, setReactions] = useState<MessageReaction[]>([]);
   // Purely visual spin state for the manual-refresh button. The actual
   // refetch is fire-and-forget through `onRefresh` (which bumps the
@@ -256,6 +287,34 @@ export function MessageThread({
 
   const conversationId = conversation?.id;
   const hasUnread = (conversation?.unread_count ?? 0) > 0;
+
+  useEffect(() => {
+    if (!conversationId) return;
+    let cancelled = false;
+    const db = createClient();
+    Promise.all([
+      db.from("ai_agents").select("id, name, role").eq("is_active", true).order("created_at"),
+      db.from("conversation_ai_settings").select("agent_id, mode, max_auto_replies_24h, active_hour_start, active_hour_end, require_unassigned").eq("conversation_id", conversationId).maybeSingle(),
+    ]).then(([agentsResult, settingResult]) => {
+      if (cancelled) return;
+      const available = (agentsResult.data ?? []) as InboxAiAgent[];
+      setAiAgents(available);
+      const setting = settingResult.data;
+      const loadedMode = setting?.mode as "off" | "assist" | "auto" | undefined;
+      const configured = loadedMode && loadedMode !== "off" ? setting?.agent_id : null;
+      setSelectedAiAgentId(configured ?? available[0]?.id ?? null);
+      setAiMode(loadedMode ?? (available.length ? "assist" : "off"));
+      if (setting) {
+        setAutoSettings({
+          max_auto_replies_24h: setting.max_auto_replies_24h ?? 3,
+          active_hour_start: setting.active_hour_start ?? 8,
+          active_hour_end: setting.active_hour_end ?? 20,
+          require_unassigned: setting.require_unassigned ?? true,
+        });
+      }
+    });
+    return () => { cancelled = true; };
+  }, [conversationId]);
 
   // Fetch messages whenever the selected conversation changes. Kept
   // separate from the unread-reset effect so that incoming messages
@@ -576,6 +635,91 @@ export function MessageThread({
     setTemplateModalOpen(true);
   }, []);
 
+  const handleGenerateAi = useCallback(async () => {
+    if (!conversation) return null;
+    try {
+      const response = await fetch("/api/ai/suggest-reply", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ conversation_id: conversation.id, agent_id: selectedAiAgentId }),
+      });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        toast.error(body.error ?? "Não foi possível gerar uma resposta");
+        return null;
+      }
+      toast.success(`Sugestão criada por ${body.agent_name}`);
+      return body.suggestion as string;
+    } catch {
+      toast.error("Falha de rede ao consultar a IA");
+      return null;
+    }
+  }, [conversation, selectedAiAgentId]);
+
+  const handleAiAgentChange = useCallback(async (agentId: string | null) => {
+    if (!conversation || !accountId) return;
+    const previous = selectedAiAgentId;
+    const previousMode = aiMode;
+    setSelectedAiAgentId(agentId);
+    setAiMode(agentId ? "assist" : "off");
+    const { error } = await createClient().from("conversation_ai_settings").upsert({
+      account_id: accountId,
+      conversation_id: conversation.id,
+      agent_id: agentId,
+      mode: agentId ? "assist" : "off",
+    }, { onConflict: "conversation_id" });
+    if (error) {
+      setSelectedAiAgentId(previous);
+      setAiMode(previousMode);
+      toast.error("Não foi possível alterar o agente da conversa");
+    } else {
+      toast.success(agentId ? "Agente vinculado à conversa" : "Copiloto desativado nesta conversa");
+    }
+  }, [conversation, selectedAiAgentId, aiMode, accountId]);
+
+  const handleAiModeChange = useCallback(async (mode: "assist" | "auto") => {
+    if (!conversation || !accountId || !selectedAiAgentId) return;
+    const previous = aiMode;
+    setAiMode(mode);
+    const { error } = await createClient().from("conversation_ai_settings").upsert({
+      account_id: accountId,
+      conversation_id: conversation.id,
+      agent_id: selectedAiAgentId,
+      mode,
+    }, { onConflict: "conversation_id" });
+    if (error) {
+      setAiMode(previous);
+      toast.error("Não foi possível alterar o modo da IA");
+    } else {
+      toast.success(mode === "auto" ? "Respostas automáticas ativadas nesta conversa" : "Modo copiloto ativado");
+    }
+  }, [conversation, accountId, selectedAiAgentId, aiMode]);
+
+  const activateAutoMode = useCallback(async () => {
+    if (!conversation || !accountId || !selectedAiAgentId) return;
+    if (autoSettings.active_hour_end <= autoSettings.active_hour_start) {
+      toast.error("O horário final deve ser posterior ao inicial");
+      return;
+    }
+    setSavingAutoSettings(true);
+    const { error } = await createClient().from("conversation_ai_settings").upsert({
+      account_id: accountId,
+      conversation_id: conversation.id,
+      agent_id: selectedAiAgentId,
+      mode: "auto",
+      timezone: "America/Sao_Paulo",
+      ...autoSettings,
+    }, { onConflict: "conversation_id" });
+    setSavingAutoSettings(false);
+    if (error) {
+      toast.error("Não foi possível ativar as respostas automáticas");
+      return;
+    }
+    setAiMode("auto");
+    setAutoSettingsOpen(false);
+    toast.success("Modo automático ativado com limites de segurança");
+  }, [conversation, accountId, selectedAiAgentId, autoSettings]);
+
   const handleSendTemplate = useCallback(
     async (
       template: MessageTemplate,
@@ -852,6 +996,63 @@ export function MessageThread({
         </div>
 
         <div className="flex items-center gap-2">
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              title="Agente de IA da conversa"
+              className={cn(
+                "inline-flex h-7 items-center justify-center gap-1 rounded-md px-2 text-xs hover:bg-muted",
+                selectedAiAgentId ? (aiMode === "auto" ? "bg-emerald-500/10 text-emerald-400" : "bg-primary/10 text-primary") : "text-muted-foreground",
+              )}
+            >
+              <Bot className="h-3.5 w-3.5" />
+              <span className="hidden xl:inline">
+                {aiAgents.find((agent) => agent.id === selectedAiAgentId)?.name ?? "IA"}{aiMode === "auto" ? " · Auto" : ""}
+              </span>
+              <ChevronDown className="h-3 w-3" />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="border-border bg-popover">
+              {aiAgents.length === 0 ? (
+                <DropdownMenuItem disabled>Nenhum agente ativo</DropdownMenuItem>
+              ) : (
+                aiAgents.map((agent) => (
+                  <DropdownMenuItem
+                    key={agent.id}
+                    onClick={() => void handleAiAgentChange(agent.id)}
+                  >
+                    <span className="flex-1">
+                      <span className="block">{agent.name}</span>
+                      <span className="text-[10px] text-muted-foreground">{agent.role}</span>
+                    </span>
+                    {agent.id === selectedAiAgentId && (
+                      <Check className="ml-3 h-3.5 w-3.5 text-primary" />
+                    )}
+                  </DropdownMenuItem>
+                ))
+              )}
+              {selectedAiAgentId && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => void handleAiModeChange("assist")}>
+                    <span className="flex-1"><span className="block">Modo copiloto</span><span className="text-[10px] text-muted-foreground">Sugere, mas você envia</span></span>
+                    {aiMode === "assist" && <Check className="ml-3 h-3.5 w-3.5 text-primary" />}
+                  </DropdownMenuItem>
+                  {canEditAi && (
+                    <DropdownMenuItem onClick={() => setAutoSettingsOpen(true)}>
+                      <span className="flex-1"><span className="block text-emerald-400">Modo automático</span><span className="text-[10px] text-muted-foreground">Responde com limites de segurança</span></span>
+                      {aiMode === "auto" && <Check className="ml-3 h-3.5 w-3.5 text-emerald-400" />}
+                    </DropdownMenuItem>
+                  )}
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    onClick={() => void handleAiAgentChange(null)}
+                    className="text-muted-foreground"
+                  >
+                    Desativar copiloto
+                  </DropdownMenuItem>
+                </>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
           {/* Contact-panel toggle — desktop only. The contact sidebar
               eats a chunk of horizontal width that crowds the thread on
               smaller laptops; this lets agents reclaim it when they just
@@ -1058,11 +1259,11 @@ export function MessageThread({
 
       {/* Composer */}
       <MessageComposer
-        conversationId={conversation.id}
         sessionExpired={sessionInfo.expired}
         onSend={handleSend}
         onSendMedia={handleSendMedia}
         onOpenTemplates={handleOpenTemplates}
+        onGenerateAi={selectedAiAgentId ? handleGenerateAi : undefined}
         replyTo={replyTo}
         onClearReply={() => setReplyTo(null)}
       />
@@ -1072,6 +1273,32 @@ export function MessageThread({
         onOpenChange={setTemplateModalOpen}
         onSelect={handleSendTemplate}
       />
+
+      <Dialog open={autoSettingsOpen} onOpenChange={setAutoSettingsOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2"><Bot className="h-5 w-5 text-emerald-400" /> Ativar respostas automáticas</DialogTitle>
+            <DialogDescription>O agente selecionado poderá responder este contato sem revisão humana, respeitando os limites abaixo.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div>
+              <Label htmlFor="auto-limit">Máximo de respostas em 24 horas</Label>
+              <Input id="auto-limit" type="number" min={1} max={20} value={autoSettings.max_auto_replies_24h} onChange={(event) => setAutoSettings((current) => ({ ...current, max_auto_replies_24h: Math.min(20, Math.max(1, Number(event.target.value))) }))} className="mt-1.5" />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div><Label htmlFor="auto-start">Início</Label><Input id="auto-start" type="number" min={0} max={23} value={autoSettings.active_hour_start} onChange={(event) => setAutoSettings((current) => ({ ...current, active_hour_start: Math.min(23, Math.max(0, Number(event.target.value))) }))} className="mt-1.5" /></div>
+              <div><Label htmlFor="auto-end">Término</Label><Input id="auto-end" type="number" min={1} max={24} value={autoSettings.active_hour_end} onChange={(event) => setAutoSettings((current) => ({ ...current, active_hour_end: Math.min(24, Math.max(1, Number(event.target.value))) }))} className="mt-1.5" /></div>
+            </div>
+            <p className="-mt-2 text-xs text-muted-foreground">Horário de Brasília · America/Sao_Paulo</p>
+            <label className="flex items-center justify-between rounded-xl border border-border bg-muted/30 p-3">
+              <span><strong className="block text-sm">Pausar quando houver responsável</strong><span className="text-xs text-muted-foreground">A IA não responde conversas atribuídas a uma pessoa.</span></span>
+              <Switch checked={autoSettings.require_unassigned} onCheckedChange={(value) => setAutoSettings((current) => ({ ...current, require_unassigned: value }))} />
+            </label>
+            <div className="rounded-xl border border-amber-500/25 bg-amber-500/10 p-3 text-xs leading-relaxed text-amber-200">Se a API falhar, o sistema interrompe o modo automático e retorna a conversa para o copiloto.</div>
+          </div>
+          <DialogFooter><Button variant="outline" onClick={() => setAutoSettingsOpen(false)}>Cancelar</Button><Button onClick={() => void activateAutoMode()} disabled={savingAutoSettings} className="bg-emerald-600 text-white hover:bg-emerald-500">{savingAutoSettings ? "Ativando..." : "Confirmar e ativar"}</Button></DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
