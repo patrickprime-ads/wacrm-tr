@@ -21,7 +21,31 @@ type ScoringRules = {
   perdido: number;
   paid_source_bonus: number;
   fast_response_bonus: number;
+  frio_label: string;
+  curioso_label: string;
+  interessado_label: string;
+  quente_label: string;
+  vendido_label: string;
+  perdido_label: string;
 };
+
+type ScoreKey =
+  | "frio"
+  | "curioso"
+  | "interessado"
+  | "quente"
+  | "vendido"
+  | "perdido"
+  | "paid_source_bonus"
+  | "fast_response_bonus";
+
+type LabelKey =
+  | "frio_label"
+  | "curioso_label"
+  | "interessado_label"
+  | "quente_label"
+  | "vendido_label"
+  | "perdido_label";
 
 const DEFAULT_RULES: ScoringRules = {
   frio: 15,
@@ -32,6 +56,12 @@ const DEFAULT_RULES: ScoringRules = {
   perdido: 0,
   paid_source_bonus: 5,
   fast_response_bonus: 5,
+  frio_label: "Frio",
+  curioso_label: "Curioso",
+  interessado_label: "Interessado",
+  quente_label: "Quente",
+  vendido_label: "Vendido",
+  perdido_label: "Perdido",
 };
 
 export default function LeadScoringPage() {
@@ -87,16 +117,7 @@ export default function LeadScoringPage() {
         if (contact.lead_source === "meta_ads" || contact.lead_source === "google_ads") score += rules.paid_source_bonus;
         if (contact.response_time_bucket === "Até 5 min") score += rules.fast_response_bonus;
         score = Math.min(100, score);
-        const reason =
-          classification === "quente"
-            ? "Alta intenção de compra"
-            : classification === "interessado"
-              ? "Demonstrou interesse"
-              : classification === "vendido"
-                ? "Venda concluída"
-                : classification === "perdido"
-                  ? "Venda perdida"
-                  : "Ainda precisa de qualificação";
+        const reason = rules[`${classification}_label` as LabelKey];
         return { ...contact, score, reason };
       })
       .filter((lead) => `${lead.name} ${lead.phone}`.toLowerCase().includes(query.toLowerCase()))
@@ -120,6 +141,37 @@ export default function LeadScoringPage() {
       </div>
       {showSettings && (
         <section className="rounded-xl border bg-card p-4">
+          <div className="mb-5">
+            <h2 className="font-semibold">Nomes das classificações</h2>
+            <p className="text-xs text-muted-foreground">
+              Personalize como cada nível aparece para sua equipe.
+            </p>
+            <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {([
+                ["frio_label", "Nome para lead frio"],
+                ["curioso_label", "Nome para lead curioso"],
+                ["interessado_label", "Nome para lead interessado"],
+                ["quente_label", "Nome para lead quente"],
+                ["vendido_label", "Nome para venda concluída"],
+                ["perdido_label", "Nome para venda perdida"],
+              ] as Array<[LabelKey, string]>).map(([key, label]) => (
+                <div key={key}>
+                  <Label>{label}</Label>
+                  <Input
+                    className="mt-1"
+                    value={rules[key]}
+                    onChange={(event) =>
+                      setRules((current) => ({
+                        ...current,
+                        [key]: event.target.value,
+                      }))
+                    }
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+          <h2 className="mb-3 font-semibold">Pontos de cada regra</h2>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             {([
               ["frio", "Lead frio"],
@@ -130,7 +182,7 @@ export default function LeadScoringPage() {
               ["perdido", "Venda perdida"],
               ["paid_source_bonus", "Bônus Meta/Google"],
               ["fast_response_bonus", "Bônus resposta até 5 min"],
-            ] as Array<[keyof ScoringRules, string]>).map(([key, label]) => (
+            ] as Array<[ScoreKey, string]>).map(([key, label]) => (
               <div key={key}>
                 <Label>{label}</Label>
                 <Input
@@ -156,8 +208,8 @@ export default function LeadScoringPage() {
         </section>
       )}
       <div className="grid gap-3 sm:grid-cols-3">
-        <ScoreCard label="Leads quentes" value={leads.filter((lead) => lead.score >= 80 && lead.score < 100).length} />
-        <ScoreCard label="Interessados" value={leads.filter((lead) => lead.score >= 50 && lead.score < 80).length} />
+        <ScoreCard label={rules.quente_label} value={leads.filter((lead) => lead.score >= 80 && lead.score < 100).length} />
+        <ScoreCard label={rules.interessado_label} value={leads.filter((lead) => lead.score >= 50 && lead.score < 80).length} />
         <ScoreCard label="Precisam de atenção" value={leads.filter((lead) => lead.score > 0 && lead.score < 50).length} />
       </div>
       <div className="relative max-w-md">

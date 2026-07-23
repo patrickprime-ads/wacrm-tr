@@ -348,20 +348,48 @@ export async function POST(request: Request) {
             }),
           }
         );
+        type EvolutionIdentity = {
+          id?: string;
+          number?: string;
+          remoteJid?: string;
+          remoteJidAlt?: string;
+          pushName?: string;
+          name?: string;
+          profilePictureUrl?: string | null;
+          profilePicUrl?: string | null;
+        };
         const evolutionContacts = (
           Array.isArray(contactResult)
             ? contactResult
             : Array.isArray(contactResult.contacts)
               ? contactResult.contacts
               : []
-        ) as Array<{
-          id?: string;
-          number?: string;
-          pushName?: string;
-          name?: string;
-          profilePictureUrl?: string | null;
-          profilePicUrl?: string | null;
-        }>;
+        ) as EvolutionIdentity[];
+        try {
+          const chatResult = await evolution(
+            config as ConfigRow,
+            `/chat/findChats/${instance}`,
+            {
+              method: 'POST',
+              body: JSON.stringify({
+                where: {},
+                take: 1000,
+                skip: 0,
+                orderBy: {},
+              }),
+            },
+          );
+          const chats = (
+            Array.isArray(chatResult)
+              ? chatResult
+              : Array.isArray(chatResult.chats)
+                ? chatResult.chats
+                : []
+          ) as EvolutionIdentity[];
+          evolutionContacts.push(...chats);
+        } catch {
+          // Some Evolution releases do not expose findChats.
+        }
         const { data: localContacts } = await supabase
           .from('contacts')
           .select('id, phone_normalized, avatar_url')
@@ -373,10 +401,23 @@ export async function POST(request: Request) {
           ]),
         );
         for (const evolutionContact of evolutionContacts) {
-          const phone = String(evolutionContact.number || '')
+          const jidCandidates = [
+            evolutionContact.number,
+            evolutionContact.remoteJid,
+            evolutionContact.remoteJidAlt,
+            evolutionContact.id,
+          ].filter((value): value is string => Boolean(value));
+          const realJid =
+            jidCandidates.find(
+              (value) =>
+                value.endsWith('@s.whatsapp.net') ||
+                value.endsWith('@c.us'),
+            ) || evolutionContact.number;
+          const lidJid = jidCandidates.find((value) => value.endsWith('@lid'));
+          const phone = String(realJid || '')
             .split('@')[0]
             .replace(/\D/g, '');
-          const internalId = String(evolutionContact.id || '')
+          const internalId = String(lidJid || '')
             .split('@')[0]
             .replace(/\D/g, '');
           const name = (
@@ -407,6 +448,23 @@ export async function POST(request: Request) {
             phone &&
             matches.some((contact) => contact.phone_normalized === phone)
           );
+          const realContact = matches.find(
+            (contact) => contact.phone_normalized === phone,
+          );
+          const lidContact = matches.find(
+            (contact) => contact.phone_normalized === internalId,
+          );
+          if (
+            realContact &&
+            lidContact &&
+            realContact.id !== lidContact.id
+          ) {
+            await supabase
+              .from('conversations')
+              .update({ contact_id: realContact.id })
+              .eq('account_id', accountId)
+              .eq('contact_id', lidContact.id);
+          }
           for (const match of matches) {
             const replaceInternalId = Boolean(
               phone &&

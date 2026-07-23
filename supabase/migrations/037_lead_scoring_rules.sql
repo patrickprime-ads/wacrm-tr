@@ -7,5 +7,11 @@ ALTER TABLE public.lead_tracking_settings
     "vendido": 100,
     "perdido": 0,
     "paid_source_bonus": 5,
-    "fast_response_bonus": 5
+    "fast_response_bonus": 5,
+    "frio_label": "Frio",
+    "curioso_label": "Curioso",
+    "interessado_label": "Interessado",
+    "quente_label": "Quente",
+    "vendido_label": "Vendido",
+    "perdido_label": "Perdido"
   }'::jsonb;
