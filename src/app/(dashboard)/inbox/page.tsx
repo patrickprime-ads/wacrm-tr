@@ -149,7 +149,7 @@ export default function InboxPage() {
           // realtime payloads never carry.
           return prev.map((c) =>
             c.id === fetched.id
-              ? { ...c, contact: c.contact ?? fetched.contact }
+              ? { ...c, contact: fetched.contact ?? c.contact }
               : c
           );
         }
@@ -332,6 +332,23 @@ export default function InboxPage() {
     [activeConversation, hydrateConversation]
   );
 
+  const handleContactEvent = useCallback(
+    (event: { eventType: string; new: Contact; old: Partial<Contact> }) => {
+      const updated = event.new;
+      setConversations((current) =>
+        current.map((conversation) =>
+          conversation.contact_id === updated.id
+            ? { ...conversation, contact: { ...conversation.contact, ...updated } }
+            : conversation,
+        ),
+      );
+      if (activeContact?.id === updated.id) {
+        setActiveContact((current) => (current ? { ...current, ...updated } : current));
+      }
+    },
+    [activeContact?.id],
+  );
+
   // Subscribe to realtime. The `isConnected` flag below feeds the
   // reconnect resync: realtime is best-effort and events sent while the
   // WS was disconnected (laptop sleep, network blip, background-tab
@@ -340,6 +357,7 @@ export default function InboxPage() {
     channelName: 'inbox-realtime',
     onMessageEvent: handleMessageEvent,
     onConversationEvent: handleConversationEvent,
+    onContactEvent: handleContactEvent,
     enabled: true,
   });
 

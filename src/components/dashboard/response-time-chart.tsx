@@ -23,7 +23,7 @@ interface ResponseTimeChartProps {
 // per weekday". Tremor expects categories as the second tuple in
 // the row object, so we shape the buckets into
 // `{ day: 'Mon', 'Avg minutes': 4.2 }` rows below.
-const CATEGORY = 'Avg minutes'
+const CATEGORY = 'Média em minutos'
 
 export function ResponseTimeChart({
   data,
@@ -51,26 +51,25 @@ export function ResponseTimeChart({
             Tempo Médio da Primeira Resposta
           </h2>
           <p className="mt-0.5 text-xs text-muted-foreground">
-            Minutes to reply to a customer&apos;s first unreplied message, by
-            weekday
+            Minutos até a primeira resposta ao cliente, por dia da semana
           </p>
         </div>
         <div className="flex items-center gap-3 text-right text-xs">
           {thresholdMinutes > 0 && (
             <span className="rounded-full border border-rose-500/40 bg-rose-500/10 px-2 py-0.5 font-medium text-rose-300 tabular-nums">
-              target {thresholdMinutes}m
+              meta {thresholdMinutes} min
             </span>
           )}
           {data && (data.thisWeekAvg != null || data.lastWeekAvg != null) && (
             <div>
               <div className="text-muted-foreground">
-                This week:{' '}
+                Esta semana:{' '}
                 <span className="font-medium text-foreground tabular-nums">
                   {fmt(data.thisWeekAvg)}
                 </span>
               </div>
               <div className="text-muted-foreground">
-                Last week:{' '}
+                Semana passada:{' '}
                 <span className="tabular-nums">{fmt(data.lastWeekAvg)}</span>
               </div>
             </div>

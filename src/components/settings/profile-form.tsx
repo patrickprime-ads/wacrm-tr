@@ -208,7 +208,7 @@ export function ProfileForm() {
     <section className="max-w-2xl animate-in fade-in-50 duration-200">
       <SettingsPanelHead
         title="Seu perfil"
-        description="How you show up across the app. Your avatar and name appear in the header, sidebar, and anywhere your teammates see you."
+        description="Seu nome e sua foto aparecem no cabeçalho, no menu e para os outros membros da equipe."
       />
       <form onSubmit={onSubmit} className="space-y-4">
         <Card>
