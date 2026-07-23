@@ -182,13 +182,12 @@ export default function InboxPage() {
         return;
       }
 
-      const { data } = await supabase
-        .from("whatsapp_config")
-        .select("status")
-        .eq("account_id", accountId)
-        .maybeSingle();
+      const [{ data: meta }, { data: evolution }] = await Promise.all([
+        supabase.from("whatsapp_config").select("status").eq("account_id", accountId).maybeSingle(),
+        supabase.from("evolution_config").select("status").eq("account_id", accountId).maybeSingle(),
+      ]);
 
-      setWhatsappConnected(data?.status === "connected");
+      setWhatsappConnected(meta?.status === "connected" || evolution?.status === "open");
     };
 
     checkConnection();
@@ -551,7 +550,7 @@ export default function InboxPage() {
         <div className="flex shrink-0 items-center justify-center gap-2 border-b border-amber-500/20 bg-amber-500/10 px-4 py-2">
           <WifiOff className="h-4 w-4 text-amber-400" />
           <p className="text-xs text-amber-400">
-            WhatsApp® is not connected. Go to Settings to connect your account.
+            WhatsApp não conectado. Acesse WhatsApp Business para conectar sua conta.
           </p>
         </div>
       )}

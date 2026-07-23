@@ -34,6 +34,7 @@ import { ConversationsChart } from '@/components/dashboard/conversations-chart'
 import { PipelineDonut } from '@/components/dashboard/pipeline-donut'
 import { ResponseTimeChart } from '@/components/dashboard/response-time-chart'
 import { ActivityFeed } from '@/components/dashboard/activity-feed'
+import { SalesByAgent } from '@/components/dashboard/sales-by-agent'
 
 type RangeDays = 7 | 30 | 90
 
@@ -185,6 +186,7 @@ export default function DashboardPage() {
       </div>
 
       <ResponseTimeChart data={responseTime} loading={responseTimeLoading} />
+      <SalesByAgent />
       <ActivityFeed items={activity} loading={activityLoading} />
     </div>
   )

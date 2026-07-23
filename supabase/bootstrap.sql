@@ -3885,4 +3885,11 @@ CREATE POLICY evolution_config_update ON public.evolution_config FOR UPDATE USIN
 DROP POLICY IF EXISTS evolution_config_delete ON public.evolution_config;
 CREATE POLICY evolution_config_delete ON public.evolution_config FOR DELETE USING (is_account_member(account_id, 'admin'));
 
+-- 032_evolution_webhook.sql
+ALTER TABLE public.evolution_config ADD COLUMN IF NOT EXISTS webhook_secret_encrypted TEXT;
+
+-- 033_master_admin.sql
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS is_master_admin BOOLEAN NOT NULL DEFAULT FALSE;
+CREATE INDEX IF NOT EXISTS idx_profiles_master_admin ON public.profiles(is_master_admin) WHERE is_master_admin = TRUE;
+
 

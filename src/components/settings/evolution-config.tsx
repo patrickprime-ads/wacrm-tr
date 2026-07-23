@@ -44,7 +44,7 @@ export function EvolutionConfig() {
     return () => window.clearInterval(timer);
   }, [qr, state, loadStatus]);
 
-  async function action(actionName: "save" | "connect" | "logout") {
+  async function action(actionName: "save" | "connect" | "logout" | "sync") {
     setBusy(actionName);
     try {
       const body = actionName === "save"
@@ -59,6 +59,7 @@ export function EvolutionConfig() {
         if (!data.base64 && !data.code) toast.info("Instância criada. Clique em atualizar QR se ele não aparecer.");
       }
       if (actionName === "logout") { setState("disconnected"); setQr(null); toast.success("WhatsApp desconectado"); }
+      if (actionName === "sync") toast.success("Caixa de Entrada sincronizada com a Evolution");
       await loadStatus(true);
     } catch (error) { toast.error(error instanceof Error ? error.message : "Falha na Evolution API"); }
     finally { setBusy(null); }
@@ -84,6 +85,7 @@ export function EvolutionConfig() {
           <Button variant="outline" onClick={() => void action("connect")} disabled={!configured || connected || busy !== null}>{busy === "connect" ? <Loader2 className="h-4 w-4 animate-spin" /> : <QrCode className="h-4 w-4" />} Gerar QR Code</Button>
           <Button variant="outline" onClick={() => void loadStatus()} disabled={!configured || busy !== null}><RefreshCw className="h-4 w-4" /> Atualizar status</Button>
           {connected && <Button variant="outline" onClick={() => void action("logout")} disabled={busy !== null} className="text-red-400"><LogOut className="h-4 w-4" /> Desconectar</Button>}
+          {connected && <Button variant="outline" onClick={() => void action("sync")} disabled={busy !== null}><RefreshCw className="h-4 w-4" /> Sincronizar Caixa de Entrada</Button>}
         </div>
         {(qr || pairingCode) && !connected && <div className="rounded-2xl border border-emerald-500/30 bg-background p-5 text-center"><p className="mb-4 text-sm font-medium">No celular: WhatsApp Business → Aparelhos conectados → Conectar aparelho</p>{qr && <Image src={qr} alt="QR Code para conectar o WhatsApp Business" width={280} height={280} unoptimized className="mx-auto rounded-xl bg-white p-3" />}{pairingCode && <div className="mt-3"><p className="text-xs text-muted-foreground">Código de pareamento</p><code className="text-xl font-bold tracking-widest">{pairingCode}</code></div>}<p className="mt-4 text-xs text-muted-foreground">O status é atualizado automaticamente a cada 5 segundos.</p></div>}
         {!configured && <div className="flex gap-2 rounded-xl border border-amber-500/20 bg-amber-500/5 p-3 text-xs text-muted-foreground"><Server className="h-4 w-4 shrink-0 text-amber-400" /> Informe a URL HTTPS, a chave e um nome de instância. Salve antes de gerar o QR.</div>}

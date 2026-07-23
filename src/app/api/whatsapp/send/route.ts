@@ -22,6 +22,7 @@ import {
 import type { MessageTemplate } from '@/types'
 import { isMessageTemplate } from '@/lib/whatsapp/template-row-guard'
 import { scheduleFollowup } from '@/lib/ai/followups'
+import { evolutionRequest, type EvolutionConfig } from '@/lib/evolution/client'
 
 export async function POST(request: Request) {
   try {
@@ -164,6 +165,59 @@ export async function POST(request: Request) {
         { error: 'Invalid phone number format' },
         { status: 400 }
       )
+    }
+
+    // Prefer Evolution when the account configured the WhatsApp Business
+    // QR connector. This keeps the existing inbox/composer unchanged while
+    // selecting the correct transport server-side.
+    const { data: evolutionConfig } = await supabase
+      .from('evolution_config')
+      .select('server_url, api_key_encrypted, instance_name, status')
+      .eq('account_id', accountId)
+      .maybeSingle()
+
+    if (evolutionConfig) {
+      if (message_type === 'template') {
+        return NextResponse.json(
+          { error: 'Templates da Meta não estão disponíveis na conexão por QR Code.' },
+          { status: 400 },
+        )
+      }
+      try {
+        const instance = encodeURIComponent(evolutionConfig.instance_name)
+        let result: Record<string, unknown>
+        if (isMediaKind) {
+          result = await evolutionRequest(evolutionConfig as EvolutionConfig, `/message/sendMedia/${instance}`, {
+            method: 'POST',
+            body: JSON.stringify({
+              number: sanitizedPhone,
+              mediatype: message_type,
+              media: media_url,
+              caption: content_text || undefined,
+              fileName: filename || undefined,
+            }),
+          })
+        } else {
+          result = await evolutionRequest(evolutionConfig as EvolutionConfig, `/message/sendText/${instance}`, {
+            method: 'POST',
+            body: JSON.stringify({ number: sanitizedPhone, text: content_text, linkPreview: true }),
+          })
+        }
+        const key = result.key as { id?: string } | undefined
+        const externalId = key?.id || String(result.messageId || crypto.randomUUID())
+        const { data: messageRecord, error: messageError } = await supabase
+          .from('messages')
+          .insert({ conversation_id, sender_type: 'agent', content_type: message_type, content_text: content_text || null, media_url: media_url || null, message_id: externalId, status: 'sent', reply_to_message_id: reply_to_message_id || null })
+          .select('id')
+          .single()
+        if (messageError) throw messageError
+        await supabase.from('conversations').update({ last_message_text: content_text || `[${message_type}]`, last_message_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq('id', conversation_id)
+        await scheduleFollowup(supabaseAdmin(), accountId, conversation_id, contact.id)
+        return NextResponse.json({ success: true, message_id: messageRecord.id, whatsapp_message_id: externalId, transport: 'evolution' })
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Falha na Evolution API'
+        return NextResponse.json({ error: `Evolution API: ${message}` }, { status: 502 })
+      }
     }
 
     // Fetch and decrypt WhatsApp config

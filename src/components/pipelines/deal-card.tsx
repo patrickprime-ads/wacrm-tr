@@ -100,13 +100,14 @@ export function DealCard({ deal, stage, onEdit, isOverlay }: DealCardProps) {
       </div>
 
       {assigneeLabel && (
-        <div className="mt-2 flex items-center justify-end">
+        <div className="mt-2 flex items-center justify-end gap-1.5 text-[11px] text-muted-foreground">
           <span
             title={assigneeLabel}
             className="flex h-5 w-5 items-center justify-center rounded-full bg-primary/15 text-[10px] font-semibold text-primary"
           >
             {initials(assigneeLabel)}
           </span>
+          <span className="max-w-28 truncate">{assigneeLabel}</span>
         </div>
       )}
     </button>

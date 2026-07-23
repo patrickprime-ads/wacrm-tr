@@ -1,12 +1,14 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { decrypt, encrypt } from "@/lib/whatsapp/encryption";
+import { randomBytes } from "node:crypto";
 
 type ConfigRow = {
   server_url: string;
   api_key_encrypted: string;
   instance_name: string;
   status: string;
+  webhook_secret_encrypted?: string | null;
 };
 
 async function context() {
@@ -83,29 +85,50 @@ export async function POST(request: Request) {
       const serverUrl = safeServerUrl(body.server_url?.trim() || "");
       const instanceName = body.instance_name?.trim() || "";
       if (!/^[a-zA-Z0-9_-]{3,50}$/.test(instanceName)) return NextResponse.json({ error: "Use de 3 a 50 letras, números, hífen ou sublinhado no nome da instância." }, { status: 400 });
-      const { data: existing } = await supabase.from("evolution_config").select("api_key_encrypted").eq("account_id", accountId).maybeSingle();
+      const { data: existing } = await supabase.from("evolution_config").select("api_key_encrypted, webhook_secret_encrypted").eq("account_id", accountId).maybeSingle();
       const encryptedKey = body.api_key?.trim() ? encrypt(body.api_key.trim()) : existing?.api_key_encrypted;
       if (!encryptedKey) return NextResponse.json({ error: "Informe a chave global da Evolution API." }, { status: 400 });
-      const { error } = await supabase.from("evolution_config").upsert({ account_id: accountId, server_url: serverUrl, instance_name: instanceName, api_key_encrypted: encryptedKey, status: "disconnected" }, { onConflict: "account_id" });
+      const webhookSecret = existing?.webhook_secret_encrypted || encrypt(randomBytes(32).toString("hex"));
+      const { error } = await supabase.from("evolution_config").upsert({ account_id: accountId, server_url: serverUrl, instance_name: instanceName, api_key_encrypted: encryptedKey, webhook_secret_encrypted: webhookSecret, status: "disconnected" }, { onConflict: "account_id" });
       if (error) return NextResponse.json({ error: error.message }, { status: 400 });
       return NextResponse.json({ ok: true });
     }
 
-    const { data: config, error } = await supabase.from("evolution_config").select("server_url, api_key_encrypted, instance_name, status").eq("account_id", accountId).maybeSingle();
+    const { data: config, error } = await supabase.from("evolution_config").select("server_url, api_key_encrypted, instance_name, status, webhook_secret_encrypted").eq("account_id", accountId).maybeSingle();
     if (error || !config) return NextResponse.json({ error: "Salve a configuração da Evolution primeiro." }, { status: 400 });
     const instance = encodeURIComponent(config.instance_name);
+    const origin = new URL(request.url).origin;
+    const webhookSecret = config.webhook_secret_encrypted ? decrypt(config.webhook_secret_encrypted) : null;
+    const configureWebhook = async () => {
+      if (!webhookSecret) throw new Error("Salve novamente a configuração para gerar a segurança do webhook.");
+      await evolution(config as ConfigRow, `/webhook/set/${instance}`, {
+        method: "POST",
+        body: JSON.stringify({ webhook: { enabled: true, url: `${origin}/api/evolution/webhook?token=${encodeURIComponent(webhookSecret)}`, webhookByEvents: false, webhookBase64: false, events: ["MESSAGES_UPSERT", "MESSAGES_UPDATE", "CONNECTION_UPDATE"] } }),
+      });
+    };
+
+    if (body.action === "sync") {
+      await configureWebhook();
+      return NextResponse.json({ ok: true });
+    }
 
     if (body.action === "connect") {
       try {
-        const created = await evolution(config as ConfigRow, "/instance/create", { method: "POST", body: JSON.stringify({ instanceName: config.instance_name, qrcode: true, integration: "WHATSAPP-BAILEYS" }) });
-        const qr = qrFrom(created);
-        if (qr.base64 || qr.code) return NextResponse.json({ ok: true, ...qr });
+        // A maioria dos clientes já cria a instância no Evolution
+        // Manager. Consultá-la primeiro também permite que instalações
+        // configuradas com chave por instância gerem o QR sem precisar
+        // da chave global exigida por /instance/create.
+        const connected = await evolution(config as ConfigRow, `/instance/connect/${instance}`);
+        await configureWebhook();
+        return NextResponse.json({ ok: true, ...qrFrom(connected) });
       } catch (error) {
         const message = error instanceof Error ? error.message.toLowerCase() : "";
-        if (!message.includes("already") && !message.includes("exist") && !message.includes("403")) throw error;
+        const missing = message.includes("not found") || message.includes("does not exist") || message.includes("não existe") || message.includes("404");
+        if (!missing) throw error;
       }
-      const connected = await evolution(config as ConfigRow, `/instance/connect/${instance}`);
-      return NextResponse.json({ ok: true, ...qrFrom(connected) });
+      const created = await evolution(config as ConfigRow, "/instance/create", { method: "POST", body: JSON.stringify({ instanceName: config.instance_name, qrcode: true, integration: "WHATSAPP-BAILEYS" }) });
+      await configureWebhook();
+      return NextResponse.json({ ok: true, ...qrFrom(created) });
     }
 
     if (body.action === "logout") {

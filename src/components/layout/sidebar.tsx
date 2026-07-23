@@ -102,7 +102,7 @@ interface SidebarProps {
 
 export function Sidebar({ open = false, onClose }: SidebarProps) {
   const pathname = usePathname();
-  const { profile, profileLoading, account, accountRole, signOut } = useAuth();
+  const { profile, profileLoading, account, accountRole, isMasterAdmin, signOut } = useAuth();
   const totalUnread = useTotalUnread();
   const t = useTranslations('nav');
   const navItems: NavItem[] = [
@@ -120,6 +120,7 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
 ];
 
 const bottomNavItems = [
+  ...(isMasterAdmin ? [{ href: "/master", label: "Painel Master", icon: Crown }] : []),
   { href: "/settings", label: t('settings'), icon: Settings },
 ];
   // Only surface the account-name strip when it actually carries
