@@ -245,6 +245,8 @@ export default function PipelinesPage() {
 
   const handleDealMoved = useCallback(
     async (dealId: string, newStageId: string) => {
+      const movedDeal = deals.find((deal) => deal.id === dealId);
+      const targetStage = stages.find((stage) => stage.id === newStageId);
       // Optimistic update — board already animated; just persist.
       setDeals((prev) =>
         prev.map((d) => (d.id === dealId ? { ...d, stage_id: newStageId } : d))
@@ -254,11 +256,39 @@ export default function PipelinesPage() {
         .update({ stage_id: newStageId })
         .eq('id', dealId);
       if (error) {
-        toast.error('Falha ao mover negócio');
+        toast.error('Falha ao mover venda');
         refreshDeals();
+        return;
+      }
+
+      const normalizedStage = targetStage?.name.toLocaleLowerCase('pt-BR') ?? '';
+      const automaticClassification =
+        /ganh|fechad|vendid/.test(normalizedStage)
+          ? 'vendido'
+          : /perdid/.test(normalizedStage)
+            ? 'perdido'
+            : null;
+      if (automaticClassification && movedDeal?.contact_id) {
+        await supabase
+          .from('contacts')
+          .update({ lead_temperature: automaticClassification })
+          .eq('id', movedDeal.contact_id);
+        setDeals((current) =>
+          current.map((item) =>
+            item.id === dealId && item.contact
+              ? {
+                  ...item,
+                  contact: {
+                    ...item.contact,
+                    lead_temperature: automaticClassification,
+                  },
+                }
+              : item,
+          ),
+        );
       }
     },
-    [supabase, refreshDeals]
+    [deals, stages, supabase, refreshDeals]
   );
 
   const handleAddDeal = useCallback(
@@ -441,7 +471,7 @@ export default function PipelinesPage() {
           </GatedButton>
           <GatedButton
             canAct={canCreateDeals}
-            gateReason="criar negócios"
+            gateReason="criar vendas"
             disabled={!selectedPipelineId || stages.length === 0}
             onClick={() => handleAddDeal()}
             className="bg-primary text-primary-foreground hover:bg-primary/90"
@@ -460,7 +490,7 @@ export default function PipelinesPage() {
             Nenhum funil ainda
           </h3>
           <p className="text-muted-foreground mt-2 text-sm">
-            Crie um funil para começar a acompanhar negócios
+            Crie um funil para começar a acompanhar vendas
           </p>
           <GatedButton
             canAct={canEditSettings}

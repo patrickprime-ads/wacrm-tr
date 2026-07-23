@@ -28,7 +28,6 @@ import {
   X,
   Trash2,
   MessageSquare,
-  DollarSign,
   Loader2,
 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -50,6 +49,25 @@ interface QuickProduct {
   group: string;
   detail?: string;
 }
+
+type LeadTemperature = NonNullable<Contact['lead_temperature']>;
+
+const CONTRACT_OPTIONS = [
+  { months: 1, label: 'Avulso / 1 mês' },
+  { months: 2, label: 'Bimestral' },
+  { months: 3, label: 'Trimestral' },
+  { months: 6, label: 'Semestral' },
+  { months: 12, label: 'Anual' },
+] as const;
+
+const LEAD_OPTIONS: Array<{ value: LeadTemperature; label: string }> = [
+  { value: 'frio', label: 'Frio — pouco interesse' },
+  { value: 'curioso', label: 'Curioso — pesquisando' },
+  { value: 'interessado', label: 'Interessado' },
+  { value: 'quente', label: 'Quente — pronto para comprar' },
+  { value: 'vendido', label: 'Vendido' },
+  { value: 'perdido', label: 'Perdido' },
+];
 
 const QUICK_PRODUCTS: QuickProduct[] = [
   { name: 'Cartão Essence', price: 59.9, group: 'Cartões principais', detail: 'Até 5 pessoas' },
@@ -86,6 +104,7 @@ export function DealForm({
 
   const [title, setTitle] = useState('');
   const [value, setValue] = useState('');
+  const [contractMonths, setContractMonths] = useState<1 | 2 | 3 | 6 | 12>(1);
   const [contactId, setContactId] = useState('');
   const [newContactMode, setNewContactMode] = useState(false);
   const [newContactName, setNewContactName] = useState('');
@@ -95,7 +114,10 @@ export function DealForm({
   const [assignedTo, setAssignedTo] = useState('');
   const [expectedCloseDate, setExpectedCloseDate] = useState('');
   const [notes, setNotes] = useState('');
-  const [selectedProduct, setSelectedProduct] = useState('');
+  const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
+  const [leadTemperature, setLeadTemperature] =
+    useState<LeadTemperature>('curioso');
+  const [responseTimeBucket, setResponseTimeBucket] = useState('');
 
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [profiles, setProfiles] = useState<Profile[]>([]);
@@ -116,7 +138,8 @@ export function DealForm({
     setConfirmDelete(false);
     if (deal) {
       setTitle(deal.title);
-      setValue(String(deal.value ?? ''));
+      setValue(String(deal.installment_value ?? deal.value ?? ''));
+      setContractMonths(deal.contract_months ?? 1);
       // contact_id is nullable when the contact has been deleted
       // (migration 004: ON DELETE SET NULL). "" means "no selection".
       setContactId(deal.contact_id ?? '');
@@ -124,17 +147,22 @@ export function DealForm({
       setAssignedTo(deal.assigned_to ?? '');
       setExpectedCloseDate(deal.expected_close_date ?? '');
       setNotes(deal.notes ?? '');
-      setSelectedProduct('');
+      setSelectedProducts(deal.selected_products ?? []);
+      setLeadTemperature(deal.contact?.lead_temperature ?? 'curioso');
+      setResponseTimeBucket(deal.contact?.response_time_bucket ?? '');
       setNewContactMode(false);
     } else {
       setTitle('');
       setValue('');
+      setContractMonths(1);
       setContactId(defaultContactId || '');
       setStageId(defaultStageId || stages[0]?.id || '');
       setAssignedTo('');
       setExpectedCloseDate('');
       setNotes('');
-      setSelectedProduct('');
+      setSelectedProducts([]);
+      setLeadTemperature('curioso');
+      setResponseTimeBucket('');
       setNewContactMode(false);
       setNewContactName('');
       setNewContactPhone('');
@@ -214,6 +242,8 @@ export function DealForm({
           phone: normalizedPhone,
           phone_normalized: normalizedPhone,
           lead_source: newContactSource,
+          lead_temperature: leadTemperature,
+          response_time_bucket: responseTimeBucket || null,
         })
         .select('id')
         .single();
@@ -227,7 +257,9 @@ export function DealForm({
 
     const payload = {
       title: title.trim(),
-      value: parseFloat(value) || 0,
+      value: (parseFloat(value) || 0) * contractMonths,
+      installment_value: parseFloat(value) || 0,
+      contract_months: contractMonths,
       currency: 'BRL',
       contact_id: resolvedContactId,
       pipeline_id: pipelineId,
@@ -235,7 +267,16 @@ export function DealForm({
       assigned_to: assignedTo || null,
       notes: notes.trim() || null,
       expected_close_date: expectedCloseDate || null,
+      selected_products: selectedProducts,
     };
+
+    await supabase
+      .from('contacts')
+      .update({
+        lead_temperature: leadTemperature,
+        response_time_bucket: responseTimeBucket || null,
+      })
+      .eq('id', resolvedContactId);
 
     if (deal) {
       const { error } = await supabase
@@ -243,7 +284,7 @@ export function DealForm({
         .update(payload)
         .eq('id', deal.id);
       if (error) {
-        toast.error('Falha ao salvar negócio');
+        toast.error('Falha ao salvar venda');
         setSaving(false);
         return;
       }
@@ -269,7 +310,7 @@ export function DealForm({
         status: 'open',
       });
       if (error) {
-        toast.error('Falha ao criar negócio');
+        toast.error('Falha ao criar venda');
         setSaving(false);
         return;
       }
@@ -282,9 +323,19 @@ export function DealForm({
   }
 
   function chooseProduct(product: QuickProduct) {
-    setSelectedProduct(product.name);
-    setTitle(`Venda ${product.name}`);
-    setValue(product.price === null ? '' : String(product.price));
+    const next = selectedProducts.includes(product.name)
+      ? selectedProducts.filter((name) => name !== product.name)
+      : [...selectedProducts, product.name];
+    setSelectedProducts(next);
+    const contactName = newContactMode
+      ? newContactName.trim()
+      : contacts.find((contact) => contact.id === contactId)?.name?.trim();
+    const primaryName = next[0];
+    setTitle(primaryName ? `${primaryName}${contactName ? ` — ${contactName}` : ''}` : '');
+    const total = QUICK_PRODUCTS.filter(
+      (item) => next.includes(item.name) && item.price !== null,
+    ).reduce((sum, item) => sum + (item.price ?? 0), 0);
+    setValue(total ? String(total) : '');
   }
 
   async function handleStatusChange(status: DealStatus) {
@@ -296,8 +347,16 @@ export function DealForm({
       .eq('id', deal.id);
     setStatusAction(null);
     if (error) {
-      toast.error('Falha ao atualizar status do negócio');
+      toast.error('Falha ao atualizar status da venda');
       return;
+    }
+    if (deal.contact_id && (status === 'won' || status === 'lost')) {
+      await supabase
+        .from('contacts')
+        .update({
+          lead_temperature: status === 'won' ? 'vendido' : 'perdido',
+        })
+        .eq('id', deal.contact_id);
     }
     toast.success(
       status === 'won'
@@ -316,7 +375,7 @@ export function DealForm({
     const { error } = await supabase.from('deals').delete().eq('id', deal.id);
     setDeleting(false);
     if (error) {
-      toast.error('Falha ao excluir negócio');
+      toast.error('Falha ao excluir venda');
       return;
     }
     toast.success('Venda excluída');
@@ -444,7 +503,7 @@ export function DealForm({
                               type="button"
                               onClick={() => chooseProduct(product)}
                               className={`rounded-xl border p-3 text-left transition-colors ${
-                                selectedProduct === product.name
+                                selectedProducts.includes(product.name)
                                   ? 'border-primary bg-primary/10'
                                   : 'border-border bg-muted/40 hover:border-primary/50'
                               }`}
@@ -473,17 +532,89 @@ export function DealForm({
             )}
 
             <div className="grid gap-2">
-              <Label className="text-muted-foreground">Valor da venda (R$)</Label>
+              <Label className="text-muted-foreground">
+                Valor da parcela / mensalidade
+              </Label>
               <div className="relative">
-                <DollarSign className="text-muted-foreground absolute top-1/2 left-2 h-3.5 w-3.5 -translate-y-1/2" />
+                <span className="text-muted-foreground absolute top-1/2 left-3 -translate-y-1/2 text-xs font-semibold">
+                  R$
+                </span>
                 <Input
                   type="number"
                   value={value}
                   onChange={(e) => setValue(e.target.value)}
                   placeholder="0,00"
-                  className="border-border bg-muted text-foreground pl-7"
+                  className="border-border bg-muted text-foreground pl-10"
                 />
               </div>
+            </div>
+
+            <div className="grid gap-2">
+              <Label className="text-muted-foreground">Tipo do contrato</Label>
+              <select
+                value={contractMonths}
+                onChange={(event) =>
+                  setContractMonths(
+                    Number(event.target.value) as 1 | 2 | 3 | 6 | 12,
+                  )
+                }
+                className="border-border bg-muted text-foreground focus:border-primary h-9 w-full rounded-lg border px-2.5 text-sm outline-none"
+              >
+                {CONTRACT_OPTIONS.map((option) => (
+                  <option key={option.months} value={option.months}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+              <div className="border-border bg-primary/5 rounded-lg border p-3">
+                <span className="text-muted-foreground block text-xs">
+                  Total do contrato
+                </span>
+                <strong className="text-primary text-base">
+                  {new Intl.NumberFormat('pt-BR', {
+                    style: 'currency',
+                    currency: 'BRL',
+                  }).format((parseFloat(value) || 0) * contractMonths)}
+                </strong>
+                <span className="text-muted-foreground ml-2 text-xs">
+                  {contractMonths} {contractMonths === 1 ? 'parcela' : 'parcelas'}
+                </span>
+              </div>
+            </div>
+
+            <div className="grid gap-2">
+              <Label className="text-muted-foreground">
+                Classificação do lead
+              </Label>
+              <select
+                value={leadTemperature}
+                onChange={(event) =>
+                  setLeadTemperature(event.target.value as LeadTemperature)
+                }
+                className="border-border bg-muted text-foreground focus:border-primary h-9 w-full rounded-lg border px-2.5 text-sm outline-none"
+              >
+                {LEAD_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="grid gap-2">
+              <Label className="text-muted-foreground">Tempo de resposta</Label>
+              <select
+                value={responseTimeBucket}
+                onChange={(event) => setResponseTimeBucket(event.target.value)}
+                className="border-border bg-muted text-foreground focus:border-primary h-9 w-full rounded-lg border px-2.5 text-sm outline-none"
+              >
+                <option value="">Ainda não informado</option>
+                <option value="Até 5 min">🟢 Até 5 min</option>
+                <option value="5–15 min">🟡 5–15 min</option>
+                <option value="15–30 min">🟠 15–30 min</option>
+                <option value="30–60 min">🔴 30–60 min</option>
+                <option value="Acima de 1 hora">⚫ Acima de 1 hora</option>
+              </select>
             </div>
 
             <div className="grid gap-2">
@@ -621,7 +752,7 @@ export function DealForm({
             {deal &&
               (confirmDelete ? (
                 <div className="mt-3 flex items-center justify-between gap-2 rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs">
-                  <span className="text-red-300">Excluir este negócio?</span>
+                  <span className="text-red-300">Excluir esta venda?</span>
                   <div className="flex gap-1">
                     <button
                       type="button"
@@ -648,7 +779,7 @@ export function DealForm({
                   className="mt-3 flex w-full items-center justify-center gap-1 text-xs text-red-400 hover:text-red-300"
                 >
                   <Trash2 className="h-3 w-3" />
-                  Excluir negócio
+                  Excluir venda
                 </button>
               ))}
           </div>

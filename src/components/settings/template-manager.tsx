@@ -482,7 +482,7 @@ export function TemplateManager() {
   return (
     <section className="animate-in fade-in-50 space-y-4 duration-200">
       <SettingsPanelHead
-        title="Message templates"
+        title="Modelos de mensagem"
         description={
           'Crie templates e envie para aprovação da Meta. Use "Sincronizar da Meta" para trazer templates aprovados em outro lugar.'
         }
@@ -492,7 +492,7 @@ export function TemplateManager() {
               variant="outline"
               onClick={handleSyncFromMeta}
               disabled={syncing}
-              title="Pull approved templates from your Meta WhatsApp Business Account"
+              title="Buscar modelos aprovados na conta do WhatsApp Business"
             >
               <RefreshCw className={`size-4 ${syncing ? 'animate-spin' : ''}`} />
               {syncing ? 'Sincronizando…' : 'Sincronizar da Meta'}
@@ -508,9 +508,9 @@ export function TemplateManager() {
       {templates.length === 0 ? (
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12 text-center">
-            <p className="text-muted-foreground text-sm">No templates yet.</p>
+            <p className="text-muted-foreground text-sm">Nenhum modelo ainda.</p>
             <p className="text-muted-foreground text-xs mt-1">
-              Create your first message template to get started.
+              Crie seu primeiro modelo de mensagem para começar.
             </p>
           </CardContent>
         </Card>

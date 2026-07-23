@@ -29,8 +29,8 @@ export function PipelineDonut({ data, loading, currency }: PipelineDonutProps) {
         ) : data.stages.length === 0 ? (
           <EmptyState
             icon={GitBranch}
-            title="Nenhum negócio aberto ainda"
-            hint="Crie negócios em Funis de Venda para ver o detalhamento por etapa aqui."
+            title="Nenhuma venda aberta ainda"
+            hint="Crie vendas em Funis de Venda para ver o detalhamento por etapa aqui."
           />
         ) : (
           <>

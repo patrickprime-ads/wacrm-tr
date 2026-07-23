@@ -10,11 +10,11 @@ import { useTranslations } from 'next-intl';
 import {
   Crown,
   Bot,
+  ClipboardList,
   GitBranch,
   LayoutDashboard,
   LogOut,
   MessageSquare,
-  Radio,
   Settings,
   Shield,
   Target,
@@ -110,9 +110,9 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
   { href: "/pipelines", label: t('pipelines'), icon: GitBranch },
   { href: "/lead-tracking", label: "Tracking de Leads", icon: Target, adminOnly: true },
   { href: "/ai-agents", label: "Agentes IA", icon: Bot, adminOnly: true },
-  { href: "/broadcasts", label: "Disparos", icon: Radio, adminOnly: true },
   { href: "/automations", label: t('automations'), icon: Zap, adminOnly: true },
   { href: "/flows", label: t('flows'), icon: Workflow, beta: true, adminOnly: true },
+  { href: "/daily-summary", label: "Resumo do Dia", icon: ClipboardList },
 ];
   const navItems = allNavItems.filter((item) => !item.adminOnly || accountRole === "owner" || accountRole === "admin");
 

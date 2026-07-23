@@ -238,7 +238,7 @@ function StageColumn({
       >
         {deals.length === 0 ? (
           <div className="flex flex-1 items-center justify-center rounded-lg border-2 border-dashed border-border py-10 text-xs text-muted-foreground">
-            Solte um negócio aqui
+            Solte uma venda aqui
           </div>
         ) : (
           deals.map((deal) => (

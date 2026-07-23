@@ -41,6 +41,28 @@ function contentType(data: EvolutionMessage) {
   return "text";
 }
 
+function adReferral(data: EvolutionMessage) {
+  const message = data.message ?? {};
+  const extended = message.extendedTextMessage as
+    | {
+        contextInfo?: {
+          externalAdReply?: {
+            title?: string;
+            body?: string;
+            sourceUrl?: string;
+            mediaUrl?: string;
+          };
+        };
+      }
+    | undefined;
+  const ad = extended?.contextInfo?.externalAdReply;
+  if (!ad) return null;
+  return {
+    label: ad.title?.trim() || ad.body?.trim() || "Anúncio Meta",
+    url: ad.sourceUrl || ad.mediaUrl || null,
+  };
+}
+
 export async function importEvolutionMessage(accountId: string, data: EvolutionMessage) {
   const db = supabaseAdmin();
   const jid = data.key?.remoteJidAlt || data.key?.remoteJid || "";
@@ -57,7 +79,24 @@ export async function importEvolutionMessage(accountId: string, data: EvolutionM
     .eq("conversations.account_id", accountId)
     .limit(1)
     .maybeSingle();
-  if (duplicate) return "duplicate" as const;
+  if (duplicate) {
+    const referral = adReferral(data);
+    if (referral) {
+      await db
+        .from("contacts")
+        .update({
+          lead_source: "meta_ads",
+          source_detail: referral.label,
+          source_url: referral.url,
+          utm_source: "meta",
+          utm_medium: "paid_social",
+          utm_content: referral.label,
+        })
+        .eq("account_id", accountId)
+        .eq("phone_normalized", phone);
+    }
+    return "duplicate" as const;
+  }
 
   const { data: owner } = await db
     .from("profiles")
@@ -76,6 +115,7 @@ export async function importEvolutionMessage(accountId: string, data: EvolutionM
     .eq("phone_normalized", phone)
     .maybeSingle();
   if (!contact) {
+    const referral = adReferral(data);
     const created = await db
       .from("contacts")
       .insert({
@@ -83,12 +123,43 @@ export async function importEvolutionMessage(accountId: string, data: EvolutionM
         user_id: owner.user_id,
         name: data.key?.fromMe ? phone : data.pushName || phone,
         phone,
-        lead_source: "whatsapp",
+        lead_source: referral ? "meta_ads" : "whatsapp",
+        source_detail: referral?.label || "WhatsApp Business",
+        source_url: referral?.url || null,
+        utm_source: referral ? "meta" : null,
+        utm_medium: referral ? "paid_social" : null,
+        utm_content: referral?.label || null,
       })
       .select("id")
       .single();
     if (created.error) throw created.error;
     contact = created.data;
+  } else {
+    const referral = adReferral(data);
+    const inboundName =
+      !data.key?.fromMe &&
+      data.pushName?.trim() &&
+      !["você", "you"].includes(data.pushName.trim().toLowerCase())
+        ? data.pushName.trim()
+        : null;
+    if (referral || inboundName) {
+      await db
+        .from("contacts")
+        .update({
+          ...(inboundName ? { name: inboundName } : {}),
+          ...(referral
+            ? {
+                lead_source: "meta_ads",
+                source_detail: referral.label,
+                source_url: referral.url,
+                utm_source: "meta",
+                utm_medium: "paid_social",
+                utm_content: referral.label,
+              }
+            : {}),
+        })
+        .eq("id", contact.id);
+    }
   }
 
   let { data: conversation } = await db

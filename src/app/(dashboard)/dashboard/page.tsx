@@ -35,6 +35,7 @@ import { PipelineDonut } from '@/components/dashboard/pipeline-donut'
 import { ResponseTimeChart } from '@/components/dashboard/response-time-chart'
 import { ActivityFeed } from '@/components/dashboard/activity-feed'
 import { SalesByAgent } from '@/components/dashboard/sales-by-agent'
+import { LeadOrigins } from '@/components/dashboard/lead-origins'
 
 type RangeDays = 7 | 30 | 90
 
@@ -187,6 +188,7 @@ export default function DashboardPage() {
 
       <ResponseTimeChart data={responseTime} loading={responseTimeLoading} />
       <SalesByAgent />
+      <LeadOrigins />
       <ActivityFeed items={activity} loading={activityLoading} />
     </div>
   )

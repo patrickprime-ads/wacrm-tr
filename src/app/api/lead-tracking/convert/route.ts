@@ -16,7 +16,13 @@ export async function POST(request: Request) {
     const convertedAt = body.status === "lead" || body.status === "lost" ? null : new Date().toISOString();
     const { error: updateError } = await ctx.supabase.from("contacts").update({ conversion_status: body.status, converted_at: convertedAt }).eq("id", contact.id);
     if (updateError) throw updateError;
-    const { data: settings } = await ctx.supabase.from("lead_tracking_settings").select("meta_enabled,meta_pixel_id,meta_access_token_encrypted,conversion_event").eq("account_id", ctx.accountId).maybeSingle();
+    const { data: settings } = await ctx.supabase
+      .from("lead_tracking_settings")
+      .select(
+        "meta_enabled,meta_pixel_id,meta_access_token_encrypted,google_enabled,google_customer_id,google_conversion_action,google_access_token_encrypted,conversion_event",
+      )
+      .eq("account_id", ctx.accountId)
+      .maybeSingle();
     let meta: "sent" | "not_configured" | "failed" = "not_configured";
     if (settings?.meta_enabled && settings.meta_pixel_id && settings.meta_access_token_encrypted && convertedAt) {
       const userData: Record<string, unknown> = { ph: [hash(contact.phone.replace(/\D/g, ""))], external_id: [hash(contact.id)] };
@@ -25,6 +31,59 @@ export async function POST(request: Request) {
       const response = await fetch(`https://graph.facebook.com/v21.0/${encodeURIComponent(settings.meta_pixel_id)}/events?access_token=${encodeURIComponent(decrypt(settings.meta_access_token_encrypted))}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ data: [{ event_name: settings.conversion_event || "QualifiedLead", event_time: Math.floor(Date.now() / 1000), action_source: "business_messaging", event_id: `${contact.id}-${body.status}`, user_data: userData, custom_data: { lead_status: body.status } }] }), signal: AbortSignal.timeout(15_000) });
       meta = response.ok ? "sent" : "failed";
     }
-    return NextResponse.json({ ok: true, meta });
+    let google: "sent" | "not_configured" | "failed" = "not_configured";
+    const googleClickId =
+      contact.click_id && !contact.click_id.startsWith("fb.")
+        ? contact.click_id
+        : null;
+    if (
+      settings?.google_enabled &&
+      settings.google_customer_id &&
+      settings.google_conversion_action &&
+      settings.google_access_token_encrypted &&
+      convertedAt &&
+      googleClickId
+    ) {
+      const customerId = settings.google_customer_id.replace(/\D/g, "");
+      const response = await fetch(
+        "https://datamanager.googleapis.com/v1/events:ingest",
+        {
+          method: "POST",
+          headers: {
+            authorization: `Bearer ${decrypt(settings.google_access_token_encrypted)}`,
+            "content-type": "application/json",
+          },
+          body: JSON.stringify({
+            destinations: [
+              {
+                operatingAccount: {
+                  accountType: "GOOGLE_ADS",
+                  accountId: customerId,
+                },
+                productDestinationId: settings.google_conversion_action.replace(
+                  /\D/g,
+                  "",
+                ),
+                reference: "google_ads_conversion",
+              },
+            ],
+            events: [
+              {
+                eventTimestamp: convertedAt,
+                transactionId: `${contact.id}-${body.status}`,
+                eventSource: "WEB",
+                adIdentifiers: { gclid: googleClickId },
+                currency: "BRL",
+                conversionValue: body.status === "customer" ? 1 : 0,
+                destinationReferences: ["google_ads_conversion"],
+              },
+            ],
+          }),
+          signal: AbortSignal.timeout(15_000),
+        },
+      );
+      google = response.ok ? "sent" : "failed";
+    }
+    return NextResponse.json({ ok: true, meta, google });
   } catch (error) { return toErrorResponse(error); }
 }

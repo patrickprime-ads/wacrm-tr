@@ -24,6 +24,26 @@ function initials(name?: string, fallback?: string) {
   return source.charAt(0).toUpperCase();
 }
 
+const leadLabels = {
+  frio: { label: "Frio", className: "bg-sky-500/15 text-sky-300" },
+  curioso: { label: "Curioso", className: "bg-amber-500/15 text-amber-300" },
+  interessado: { label: "Interessado", className: "bg-blue-500/15 text-blue-300" },
+  quente: { label: "Quente", className: "bg-orange-500/15 text-orange-300" },
+  vendido: { label: "Vendido", className: "bg-emerald-500/15 text-emerald-300" },
+  perdido: { label: "Perdido", className: "bg-red-500/15 text-red-300" },
+} as const;
+
+const originLabels: Record<string, string> = {
+  meta_ads: "Meta",
+  google_ads: "Google",
+  referral: "Indicação",
+  presencial: "Presencial",
+  phone: "Ligação",
+  active_base: "Base ativa",
+  whatsapp: "WhatsApp",
+  other: "Outros",
+};
+
 export function DealCard({ deal, stage, onEdit, isOverlay }: DealCardProps) {
   const savedContactName = deal.contact?.name?.trim();
   const contactLabel =
@@ -32,6 +52,7 @@ export function DealCard({ deal, stage, onEdit, isOverlay }: DealCardProps) {
       ? savedContactName
       : deal.contact?.phone || "Sem contato";
   const assigneeLabel = deal.assignee?.full_name || null;
+  const leadTag = leadLabels[deal.contact?.lead_temperature ?? "curioso"];
 
   return (
     <button
@@ -83,6 +104,32 @@ export function DealCard({ deal, stage, onEdit, isOverlay }: DealCardProps) {
           {initials(deal.contact?.name, deal.contact?.phone)}
         </span>
         <span className="truncate text-xs text-muted-foreground">{contactLabel}</span>
+        <span className={`ml-auto shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold ${leadTag.className}`}>
+          {leadTag.label}
+        </span>
+      </div>
+
+      <div className="mt-2 flex flex-wrap gap-1">
+        {deal.contact?.lead_source && (
+          <span className="rounded-full bg-violet-500/15 px-2 py-0.5 text-[10px] font-semibold text-violet-300">
+            Origem: {originLabels[deal.contact.lead_source] || deal.contact.lead_source}
+          </span>
+        )}
+        {deal.contact?.response_time_bucket && (
+          <span className="rounded-full bg-cyan-500/15 px-2 py-0.5 text-[10px] font-semibold text-cyan-300">
+            Resposta: {deal.contact.response_time_bucket}
+          </span>
+        )}
+        {deal.selected_products?.slice(0, 2).map((product) => (
+          <span key={product} className="rounded-full bg-muted px-2 py-0.5 text-[10px] text-muted-foreground">
+            {product}
+          </span>
+        ))}
+        {(deal.selected_products?.length ?? 0) > 2 && (
+          <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] text-muted-foreground">
+            +{(deal.selected_products?.length ?? 0) - 2}
+          </span>
+        )}
       </div>
 
       <div className="mt-2 flex items-center justify-between">

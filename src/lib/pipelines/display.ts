@@ -6,6 +6,7 @@ export const DEFAULT_PIPELINE_STAGES = [
   { name: "Proposta enviada", color: "#f97316", position: 2 },
   { name: "Negociação", color: "#8b5cf6", position: 3 },
   { name: "Ganho", color: "#22c55e", position: 4 },
+  { name: "Perdido", color: "#ef4444", position: 5 },
 ] as const;
 
 const LEGACY_PIPELINE_NAMES: Record<string, string> = {
@@ -18,6 +19,7 @@ const LEGACY_STAGE_NAMES: Record<string, string> = {
   "Proposal Sent": "Proposta enviada",
   Negotiation: "Negociação",
   Won: "Ganho",
+  Lost: "Perdido",
 };
 
 export function displayPipelineName(name: string): string {

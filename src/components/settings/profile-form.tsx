@@ -101,7 +101,7 @@ export function ProfileForm() {
 
     const trimmedName = fullName.trim();
     if (!trimmedName) {
-      toast.error('Display name is required');
+      toast.error('Informe o nome de exibição');
       return;
     }
     const trimmedEmail = email.trim();
@@ -239,7 +239,7 @@ export function ProfileForm() {
                 disabled={saving}
               >
                 <Upload className="size-4" />
-                {currentAvatar ? 'Change photo' : 'Upload photo'}
+                {currentAvatar ? 'Alterar foto' : 'Enviar foto'}
               </Button>
               {currentAvatar && (
                 <Button
@@ -250,11 +250,11 @@ export function ProfileForm() {
                   className="text-muted-foreground hover:text-foreground"
                 >
                   <Trash2 className="size-4" />
-                  Remove
+                  Remover
                 </Button>
               )}
               <p className="w-full text-xs text-muted-foreground">
-                PNG, JPG, WebP, or GIF. Up to 2 MB.
+                PNG, JPG, WebP ou GIF. Até 2 MB.
               </p>
             </div>
           </div>
@@ -262,7 +262,7 @@ export function ProfileForm() {
           {/* Name */}
           <div className="space-y-2">
             <Label htmlFor="profile-full-name" className="text-foreground">
-              Display name
+              Nome de exibição
             </Label>
             <Input
               id="profile-full-name"
@@ -303,21 +303,21 @@ export function ProfileForm() {
           {/* Read-only block */}
           <div className="rounded-lg border border-border bg-muted p-4">
             <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              Account details
+              Dados da conta
             </p>
             <dl className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
               <div>
-                <dt className="text-muted-foreground">Role</dt>
+                <dt className="text-muted-foreground">Função</dt>
                 <dd className="mt-0.5 font-mono text-foreground">
                   {profile?.role ?? 'user?'}
                 </dd>
               </div>
               <div>
-                <dt className="text-muted-foreground">Joined</dt>
+                <dt className="text-muted-foreground">Entrou em</dt>
                 <dd className="mt-0.5 text-foreground">{joined}</dd>
               </div>
               <div className="sm:col-span-2">
-                <dt className="text-muted-foreground">User ID</dt>
+                <dt className="text-muted-foreground">ID do usuário</dt>
                 <dd className="mt-0.5 break-all font-mono text-xs text-muted-foreground">
                   {user?.id ?? '—'}
                 </dd>

@@ -536,9 +536,22 @@ async function processMessage(
   if (!contactOutcome) return
   const contactRecord = contactOutcome.contact
   if (message.referral) {
+    const referralLabel =
+      message.referral.headline?.trim() ||
+      message.referral.body?.trim() ||
+      'Anúncio Meta';
     await supabaseAdmin()
       .from('contacts')
-      .update({ lead_source: 'meta_ads' })
+      .update({
+        lead_source: 'meta_ads',
+        source_detail: referralLabel,
+        utm_source: 'meta',
+        utm_medium: 'paid_social',
+        utm_campaign: message.referral.source_id || null,
+        utm_content: message.referral.headline || null,
+        source_url: message.referral.source_url || null,
+        ad_id: message.referral.source_id || null,
+      })
       .eq('id', contactRecord.id)
   }
 

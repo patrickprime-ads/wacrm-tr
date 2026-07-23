@@ -437,7 +437,13 @@ export default function ContactsPage() {
                   </TableCell>
                   <TableCell className="hidden md:table-cell">
                     <span className="rounded-full bg-primary/10 px-2 py-1 text-[10px] font-medium text-primary">
-                      {contact.lead_source === "meta_ads" ? "Anúncio Meta" : contact.lead_source === "google_ads" ? "Google Ads" : contact.lead_source === "whatsapp" ? "WhatsApp" : contact.lead_source || "Manual"}
+                      {contact.lead_source === "meta_ads"
+                        ? `Meta · ${contact.source_detail || "Anúncio"}`
+                        : contact.lead_source === "google_ads"
+                          ? `Google · ${contact.source_detail || "Anúncio"}`
+                          : contact.lead_source === "whatsapp"
+                            ? "WhatsApp"
+                            : contact.lead_source || "Manual"}
                     </span>
                   </TableCell>
                   <TableCell className="hidden md:table-cell">

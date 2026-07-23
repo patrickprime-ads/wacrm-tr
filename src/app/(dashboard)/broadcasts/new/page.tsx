@@ -134,6 +134,10 @@ export default function NewBroadcastPage() {
           Crie e envie uma mensagem em massa para seus contatos.
         </p>
       </div>
+      <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-200">
+        Os disparos funcionam somente pela API oficial da Meta e usam modelos
+        aprovados. A conexão por QR Code não realiza disparos em massa.
+      </div>
 
       {/* Step Indicator */}
       <div className="flex items-center justify-between">

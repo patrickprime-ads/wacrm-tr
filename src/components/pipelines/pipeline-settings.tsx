@@ -171,7 +171,7 @@ export function PipelineSettings({
       .select("id", { count: "exact", head: true })
       .eq("stage_id", stageId);
     if (count && count > 0) {
-      toast.error("Mova ou exclua os negócios desta etapa primeiro");
+      toast.error("Mova ou exclua as vendas desta etapa primeiro");
       return;
     }
     const { error } = await supabase
@@ -218,7 +218,7 @@ export function PipelineSettings({
                   Excluir funil
                 </p>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  Isso arquivará todos os negócios deste funil. Esta ação não pode ser desfeita.
+                  Isso arquivará todas as vendas deste funil. Esta ação não pode ser desfeita.
                 </p>
               </div>
             </div>

@@ -98,27 +98,27 @@ export function PipelineAnalytics({ stages, deals }: PipelineAnalyticsProps) {
         <div className="grid grid-cols-2 gap-px bg-border/70 sm:grid-cols-3 xl:grid-cols-6">
         <Metric
           icon={<BarChart3 className="h-4 w-4 text-muted-foreground" />}
-          label="Total de negócios"
+          label="Total de vendas"
           value={String(stats.totalCount)}
-          tooltip="Conta todos os negócios deste funil que não estão marcados como perdidos. Negócios ganhos continuam incluídos."
+          tooltip="Conta todas as vendas deste funil que não estão marcadas como perdidas. Vendas ganhas continuam incluídas."
         />
         <Metric
           icon={<DollarSign className="h-4 w-4 text-primary" />}
           label="Valor do funil"
           value={formatCurrency(stats.totalValue, defaultCurrency)}
-          tooltip="Soma os valores de todos os negócios deste funil, excluindo os marcados como perdidos."
+          tooltip="Soma os valores de todas as vendas deste funil, excluindo as marcadas como perdidas."
         />
         <Metric
           icon={<Target className="h-4 w-4 text-blue-400" />}
           label="Valor médio"
           value={formatCurrency(stats.avgValue, defaultCurrency)}
-          tooltip="Valor do funil dividido pelo total de negócios: a média de um negócio não perdido."
+          tooltip="Valor do funil dividido pelo total de vendas: a média de uma venda não perdida."
         />
         <Metric
           icon={<TrendingUp className="h-4 w-4 text-purple-400" />}
           label="Valor ponderado"
           value={formatCurrency(stats.weightedValue, defaultCurrency)}
-          tooltip="Receita esperada: valor de cada negócio aberto multiplicado pela probabilidade da etapa. A primeira etapa fica perto de 10%, as próximas avançam até 90% e ganho vale 100%. Perdidos ficam fora."
+          tooltip="Receita esperada: valor de cada venda aberta multiplicado pela probabilidade da etapa. A primeira etapa fica perto de 10%, as próximas avançam até 90% e ganho vale 100%. Perdidas ficam fora."
         />
         <Metric
           icon={<Trophy className="h-4 w-4 text-primary" />}
@@ -139,7 +139,7 @@ export function PipelineAnalytics({ stages, deals }: PipelineAnalyticsProps) {
               <Sparkles className="h-4 w-4" />
             </span>
             <div>
-              <p className="text-xs font-semibold uppercase tracking-wider text-primary">Radar inteligente</p>
+              <p className="text-xs font-semibold uppercase tracking-wider text-primary">Prioridade de vendas</p>
               <p className="mt-0.5 text-sm text-foreground">
                 {stats.totalCount === 0
                   ? "Adicione o primeiro lead para começar a gerar sinais comerciais."

@@ -1081,8 +1081,16 @@ export function MessageThread({
               <ArrowLeft className="h-5 w-5" />
             </button>
           )}
-          <div className="bg-muted text-foreground flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full text-sm font-medium">
-            {displayName.charAt(0).toUpperCase()}
+          <div className="bg-muted text-foreground flex h-9 w-9 flex-shrink-0 items-center justify-center overflow-hidden rounded-full text-sm font-medium">
+            {contact.avatar_url ? (
+              <img
+                src={contact.avatar_url}
+                alt={displayName}
+                className="h-full w-full object-cover"
+              />
+            ) : (
+              displayName.charAt(0).toUpperCase()
+            )}
           </div>
           <div className="min-w-0">
             <h2 className="text-foreground truncate text-sm font-semibold">
@@ -1094,7 +1102,7 @@ export function MessageThread({
             {contact.lead_source && (
               <span className="bg-primary/10 text-primary mt-0.5 inline-flex rounded-full px-1.5 py-0.5 text-[9px] font-medium">
                 {contact.lead_source === 'meta_ads'
-                  ? 'Anúncio Meta'
+                  ? `Meta · ${contact.source_detail || contact.utm_content || 'Anúncio'}`
                   : contact.lead_source === 'google_ads'
                     ? 'Google Ads'
                     : contact.lead_source === 'whatsapp'
@@ -1102,6 +1110,19 @@ export function MessageThread({
                       : contact.lead_source}
               </span>
             )}
+            <div className="mt-1 flex flex-wrap gap-1">
+              {contact.lead_temperature && (
+                <span className="bg-amber-500/10 text-amber-300 inline-flex rounded-full px-1.5 py-0.5 text-[9px] font-medium">
+                  {contact.lead_temperature.charAt(0).toUpperCase() +
+                    contact.lead_temperature.slice(1)}
+                </span>
+              )}
+              {contact.response_time_bucket && (
+                <span className="bg-cyan-500/10 text-cyan-300 inline-flex rounded-full px-1.5 py-0.5 text-[9px] font-medium">
+                  Resposta: {contact.response_time_bucket}
+                </span>
+              )}
+            </div>
           </div>
           {/* Session timer badge — hidden on the narrowest phones so
               the name + back arrow keep their room. */}

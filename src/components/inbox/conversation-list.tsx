@@ -301,6 +301,30 @@ function ConversationItem({
             />
           </div>
         </div>
+        <div className="mt-1 flex flex-wrap gap-1">
+          {contact?.lead_source && (
+            <span className="rounded-full bg-violet-500/15 px-1.5 py-0.5 text-[9px] font-medium text-violet-300">
+              {contact.lead_source === "meta_ads"
+                ? `Meta · ${contact.source_detail || "Anúncio"}`
+                : contact.lead_source === "google_ads"
+                  ? "Google Ads"
+                  : contact.lead_source === "whatsapp"
+                    ? "WhatsApp"
+                    : contact.lead_source}
+            </span>
+          )}
+          {contact?.lead_temperature && (
+            <span className="rounded-full bg-primary/10 px-1.5 py-0.5 text-[9px] font-medium text-primary">
+              {contact.lead_temperature.charAt(0).toUpperCase() +
+                contact.lead_temperature.slice(1)}
+            </span>
+          )}
+          {contact?.response_time_bucket && (
+            <span className="rounded-full bg-cyan-500/15 px-1.5 py-0.5 text-[9px] font-medium text-cyan-300">
+              {contact.response_time_bucket}
+            </span>
+          )}
+        </div>
       </div>
     </button>
   );
