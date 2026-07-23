@@ -53,7 +53,7 @@ export function EvolutionConfig() {
         ? { action: "save", server_url: serverUrl, api_key: apiKey, instance_name: instanceName }
         : { action: actionName };
       const response = await fetch("/api/evolution/config", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
-      const data = await response.json() as { error?: string; base64?: string | null; code?: string | null };
+      const data = await response.json() as { error?: string; base64?: string | null; code?: string | null; imported?: number; import_warning?: string | null };
       if (!response.ok) throw new Error(data.error || "A Evolution recusou a solicitação");
       if (actionName === "save") { setConfigured(true); setApiKey(""); toast.success("Configuração da Evolution salva"); }
       if (actionName === "connect") {
@@ -61,7 +61,14 @@ export function EvolutionConfig() {
         if (!data.base64 && !data.code) toast.info("Instância criada. Clique em atualizar QR se ele não aparecer.");
       }
       if (actionName === "logout") { setState("disconnected"); setQr(null); toast.success("WhatsApp desconectado"); }
-      if (actionName === "sync") { setWebhookConfigured(true); toast.success("Caixa de Entrada sincronizada com a Evolution"); }
+      if (actionName === "sync") {
+        setWebhookConfigured(true);
+        if (data.import_warning) {
+          toast.warning(`Webhook ativado, mas o histórico não foi importado: ${data.import_warning}`);
+        } else {
+          toast.success(`${data.imported || 0} mensagem(ns) importada(s). Novas mensagens serão recebidas automaticamente.`);
+        }
+      }
       await loadStatus(true);
     } catch (error) { toast.error(error instanceof Error ? error.message : "Falha na Evolution API"); }
     finally { setBusy(null); }

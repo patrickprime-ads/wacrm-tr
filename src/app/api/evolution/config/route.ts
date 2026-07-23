@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { decrypt, encrypt } from "@/lib/whatsapp/encryption";
 import { randomBytes } from "node:crypto";
+import { importEvolutionMessage, type EvolutionMessage } from "@/lib/evolution/inbox";
 
 type ConfigRow = {
   server_url: string;
@@ -109,7 +110,7 @@ export async function POST(request: Request) {
       if (!webhookSecret) throw new Error("Salve novamente a configuração para gerar a segurança do webhook.");
       await evolution(config as ConfigRow, `/webhook/set/${instance}`, {
         method: "POST",
-        body: JSON.stringify({ webhook: { enabled: true, url: `${origin}/api/evolution/webhook?token=${encodeURIComponent(webhookSecret)}`, webhookByEvents: false, webhookBase64: false, events: ["MESSAGES_UPSERT", "MESSAGES_UPDATE", "CONNECTION_UPDATE"] } }),
+        body: JSON.stringify({ webhook: { enabled: true, url: `${origin}/api/evolution/webhook?token=${encodeURIComponent(webhookSecret)}`, webhookByEvents: false, webhookBase64: false, events: ["MESSAGES_SET", "MESSAGES_UPSERT", "MESSAGES_UPDATE", "CONNECTION_UPDATE"] } }),
       });
     };
 
@@ -120,9 +121,31 @@ export async function POST(request: Request) {
       await supabase.from("evolution_config").update({ webhook_secret_encrypted: encrypt(freshSecret) }).eq("account_id", accountId);
       await evolution(config as ConfigRow, `/webhook/set/${instance}`, {
         method: "POST",
-        body: JSON.stringify({ webhook: { enabled: true, url: `${origin}/api/evolution/webhook?token=${encodeURIComponent(freshSecret)}`, webhookByEvents: false, webhookBase64: false, events: ["MESSAGES_UPSERT", "MESSAGES_UPDATE", "CONNECTION_UPDATE"] } }),
+        body: JSON.stringify({ webhook: { enabled: true, url: `${origin}/api/evolution/webhook?token=${encodeURIComponent(freshSecret)}`, webhookByEvents: false, webhookBase64: false, events: ["MESSAGES_SET", "MESSAGES_UPSERT", "MESSAGES_UPDATE", "CONNECTION_UPDATE"] } }),
       });
-      return NextResponse.json({ ok: true });
+      let imported = 0;
+      let skipped = 0;
+      let importWarning: string | null = null;
+      try {
+        const history = await evolution(config as ConfigRow, `/chat/findMessages/${instance}`, {
+          method: "POST",
+          body: JSON.stringify({ where: { key: {} }, page: 1, offset: 100 }),
+        });
+        const container = (history.messages ?? history) as Record<string, unknown> | EvolutionMessage[];
+        const records = Array.isArray(container)
+          ? container
+          : Array.isArray(container.records)
+            ? container.records as EvolutionMessage[]
+            : [];
+        for (const message of records) {
+          const result = await importEvolutionMessage(accountId, message);
+          if (result === "imported") imported += 1;
+          else skipped += 1;
+        }
+      } catch (error) {
+        importWarning = error instanceof Error ? error.message : "O histórico não pôde ser consultado";
+      }
+      return NextResponse.json({ ok: true, imported, skipped, import_warning: importWarning });
     }
 
     if (body.action === "connect") {
