@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, type ReactNode } from 'react';
+import Link from 'next/link';
 
 import { cn } from '@/lib/utils';
 import {
@@ -30,7 +31,7 @@ export function SettingsRail({
   onSelect: (section: SettingsSection) => void;
   hints?: Partial<Record<SettingsSection, ReactNode>>;
 }) {
-  const activeRef = useRef<HTMLButtonElement>(null);
+  const activeRef = useRef<HTMLAnchorElement>(null);
 
   // When horizontal (mobile), keep the active chip in view. On desktop
   // the rail is a static column, so skip.
@@ -72,11 +73,10 @@ export function SettingsRail({
               const Icon = meta.icon;
               const isActive = s === active;
               return (
-                <button
+                <Link
                   key={s}
                   ref={isActive ? activeRef : undefined}
-                  type="button"
-                  onClick={() => onSelect(s)}
+                  href={`/settings?tab=${s}`}
                   aria-current={isActive ? 'page' : undefined}
                   className={cn(
                     'flex shrink-0 items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm font-medium whitespace-nowrap transition-colors',
@@ -98,7 +98,7 @@ export function SettingsRail({
                       {hints[s]}
                     </span>
                   ) : null}
-                </button>
+                </Link>
               );
             })}
           </div>
