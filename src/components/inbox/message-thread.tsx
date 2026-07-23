@@ -1,10 +1,11 @@
-"use client";
+'use client';
 
-import { useState, useEffect, useCallback, useRef, useMemo } from "react";
-import { createClient } from "@/lib/supabase/client";
-import { useAuth } from "@/hooks/use-auth";
-import { useCan } from "@/hooks/use-can";
-import { cn } from "@/lib/utils";
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import Link from 'next/link';
+import { createClient } from '@/lib/supabase/client';
+import { useAuth } from '@/hooks/use-auth';
+import { useCan } from '@/hooks/use-can';
+import { cn } from '@/lib/utils';
 import type {
   Conversation,
   Message,
@@ -13,7 +14,7 @@ import type {
   ConversationStatus,
   MessageTemplate,
   Profile,
-} from "@/types";
+} from '@/types';
 import {
   MessageSquare,
   ChevronDown,
@@ -26,13 +27,14 @@ import {
   PanelRightClose,
   Bot,
   CalendarClock,
-} from "lucide-react";
-import { format, isToday, isYesterday, differenceInHours } from "date-fns";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
+  BadgeDollarSign,
+} from 'lucide-react';
+import { format, isToday, isYesterday, differenceInHours } from 'date-fns';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
 import {
   Dialog,
   DialogContent,
@@ -40,25 +42,25 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog";
+} from '@/components/ui/dialog';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { MessageBubble } from "./message-bubble";
-import { MessageActions } from "./message-actions";
+} from '@/components/ui/dropdown-menu';
+import { MessageBubble } from './message-bubble';
+import { MessageActions } from './message-actions';
 import {
   MessageComposer,
   CHAT_MEDIA_BUCKET,
   type SendMediaPayload,
-} from "./message-composer";
-import { deleteAccountMedia } from "@/lib/storage/upload-media";
-import { TemplatePicker } from "./template-picker";
-import { buildReplyPreview } from "./reply-quote";
-import { toast } from "sonner";
+} from './message-composer';
+import { deleteAccountMedia } from '@/lib/storage/upload-media';
+import { TemplatePicker } from './template-picker';
+import { buildReplyPreview } from './reply-quote';
+import { toast } from 'sonner';
 
 interface ReplyDraft {
   id: string;
@@ -70,6 +72,7 @@ interface InboxAiAgent {
   id: string;
   name: string;
   role: string;
+  followup_quick_delays?: number[];
 }
 
 function renderTemplateBody(body: string, params: string[]): string {
@@ -89,7 +92,7 @@ interface MessageThreadProps {
   onStatusChange: (conversationId: string, status: ConversationStatus) => void;
   onAssignChange: (
     conversationId: string,
-    assignedAgentId: string | null,
+    assignedAgentId: string | null
   ) => void;
   /**
    * On mobile, the thread is shown full-screen with the conversation list
@@ -128,17 +131,17 @@ interface MessageThreadProps {
 
 function formatDateSeparator(dateStr: string): string {
   const date = new Date(dateStr);
-  if (isToday(date)) return "Hoje";
-  if (isYesterday(date)) return "Ontem";
-  return format(date, "MMMM d, yyyy");
+  if (isToday(date)) return 'Hoje';
+  if (isYesterday(date)) return 'Ontem';
+  return format(date, 'MMMM d, yyyy');
 }
 
 function groupMessagesByDate(messages: Message[]) {
   const groups: { date: string; messages: Message[] }[] = [];
-  let currentDate = "";
+  let currentDate = '';
 
   for (const msg of messages) {
-    const day = format(new Date(msg.created_at), "yyyy-MM-dd");
+    const day = format(new Date(msg.created_at), 'yyyy-MM-dd');
     if (day !== currentDate) {
       currentDate = day;
       groups.push({ date: msg.created_at, messages: [msg] });
@@ -150,10 +153,14 @@ function groupMessagesByDate(messages: Message[]) {
   return groups;
 }
 
-const STATUS_OPTIONS: { label: string; value: ConversationStatus; color: string }[] = [
-  { label: "Open", value: "open", color: "text-primary" },
-  { label: "Pending", value: "pending", color: "text-amber-400" },
-  { label: "Closed", value: "closed", color: "text-muted-foreground" },
+const STATUS_OPTIONS: {
+  label: string;
+  value: ConversationStatus;
+  color: string;
+}[] = [
+  { label: 'Aberta', value: 'open', color: 'text-primary' },
+  { label: 'Pendente', value: 'pending', color: 'text-amber-400' },
+  { label: 'Encerrada', value: 'closed', color: 'text-muted-foreground' },
 ];
 
 /**
@@ -185,14 +192,16 @@ export function MessageThread({
   officialMetaConnected = false,
 }: MessageThreadProps) {
   const { user, accountId } = useAuth();
-  const canEditAi = useCan("edit-settings");
+  const canEditAi = useCan('edit-settings');
   const [loading, setLoading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const [templateModalOpen, setTemplateModalOpen] = useState(false);
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [aiAgents, setAiAgents] = useState<InboxAiAgent[]>([]);
-  const [selectedAiAgentId, setSelectedAiAgentId] = useState<string | null>(null);
-  const [aiMode, setAiMode] = useState<"off" | "assist" | "auto">("off");
+  const [selectedAiAgentId, setSelectedAiAgentId] = useState<string | null>(
+    null
+  );
+  const [aiMode, setAiMode] = useState<'off' | 'assist' | 'auto'>('off');
   const [autoSettingsOpen, setAutoSettingsOpen] = useState(false);
   const [savingAutoSettings, setSavingAutoSettings] = useState(false);
   const [autoSettings, setAutoSettings] = useState({
@@ -233,13 +242,13 @@ export function MessageThread({
     let cancelled = false;
     const supabase = createClient();
     supabase
-      .from("profiles")
-      .select("*")
-      .order("full_name")
+      .from('profiles')
+      .select('*')
+      .order('full_name')
       .then(({ data, error }) => {
         if (cancelled) return;
         if (error) {
-          console.error("Failed to fetch profiles:", error);
+          console.error('Failed to fetch profiles:', error);
           return;
         }
         setProfiles((data as Profile[]) ?? []);
@@ -251,20 +260,24 @@ export function MessageThread({
 
   // 24-hour session timer
   const sessionInfo = useMemo(() => {
-    if (!messages.length) return { expired: false, remaining: "" };
+    if (!messages.length) return { expired: false, remaining: '' };
 
     // Find last customer message
     const lastCustomerMsg = [...messages]
       .reverse()
-      .find((m) => m.sender_type === "customer");
+      .find((m) => m.sender_type === 'customer');
 
-    if (!lastCustomerMsg) return { expired: true, remaining: "No customer messages" };
+    if (!lastCustomerMsg)
+      return { expired: true, remaining: 'Sem mensagens do cliente' };
 
-    const hoursSince = differenceInHours(new Date(), new Date(lastCustomerMsg.created_at));
+    const hoursSince = differenceInHours(
+      new Date(),
+      new Date(lastCustomerMsg.created_at)
+    );
     const expired = hoursSince >= 24;
 
     if (expired) {
-      return { expired: true, remaining: "Encerrada" };
+      return { expired: true, remaining: 'Encerrada' };
     }
 
     const hoursLeft = 24 - hoursSince;
@@ -296,17 +309,28 @@ export function MessageThread({
     let cancelled = false;
     const db = createClient();
     Promise.all([
-      db.from("ai_agents").select("id, name, role").eq("is_active", true).order("created_at"),
-      db.from("conversation_ai_settings").select("agent_id, mode, max_auto_replies_24h, active_hour_start, active_hour_end, require_unassigned").eq("conversation_id", conversationId).maybeSingle(),
+      db
+        .from('ai_agents')
+        .select('id, name, role, followup_quick_delays')
+        .eq('is_active', true)
+        .order('created_at'),
+      db
+        .from('conversation_ai_settings')
+        .select(
+          'agent_id, mode, max_auto_replies_24h, active_hour_start, active_hour_end, require_unassigned'
+        )
+        .eq('conversation_id', conversationId)
+        .maybeSingle(),
     ]).then(([agentsResult, settingResult]) => {
       if (cancelled) return;
       const available = (agentsResult.data ?? []) as InboxAiAgent[];
       setAiAgents(available);
       const setting = settingResult.data;
-      const loadedMode = setting?.mode as "off" | "assist" | "auto" | undefined;
-      const configured = loadedMode && loadedMode !== "off" ? setting?.agent_id : null;
+      const loadedMode = setting?.mode as 'off' | 'assist' | 'auto' | undefined;
+      const configured =
+        loadedMode && loadedMode !== 'off' ? setting?.agent_id : null;
       setSelectedAiAgentId(configured ?? available[0]?.id ?? null);
-      setAiMode(loadedMode ?? (available.length ? "assist" : "off"));
+      setAiMode(loadedMode ?? (available.length ? 'assist' : 'off'));
       if (setting) {
         setAutoSettings({
           max_auto_replies_24h: setting.max_auto_replies_24h ?? 3,
@@ -316,7 +340,9 @@ export function MessageThread({
         });
       }
     });
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [conversationId]);
 
   // Fetch messages whenever the selected conversation changes. Kept
@@ -333,15 +359,15 @@ export function MessageThread({
       setLoading(true);
 
       const { data, error } = await supabase
-        .from("messages")
-        .select("*")
-        .eq("conversation_id", conversationId)
-        .order("created_at", { ascending: true });
+        .from('messages')
+        .select('*')
+        .eq('conversation_id', conversationId)
+        .order('created_at', { ascending: true });
 
       if (cancelled) return;
 
       if (error) {
-        console.error("Failed to fetch messages:", error);
+        console.error('Failed to fetch messages:', error);
       } else {
         onMessagesLoadedRef.current(data ?? []);
       }
@@ -372,12 +398,12 @@ export function MessageThread({
 
     (async () => {
       const { data, error } = await supabase
-        .from("message_reactions")
-        .select("*")
-        .eq("conversation_id", conversationId);
+        .from('message_reactions')
+        .select('*')
+        .eq('conversation_id', conversationId);
       if (cancelled) return;
       if (error) {
-        console.error("Failed to fetch reactions:", error);
+        console.error('Failed to fetch reactions:', error);
         return;
       }
       setReactions((data as MessageReaction[]) ?? []);
@@ -398,11 +424,11 @@ export function MessageThread({
     const channel = supabase
       .channel(`reactions:${conversationId}`)
       .on(
-        "postgres_changes",
+        'postgres_changes',
         {
-          event: "INSERT",
-          schema: "public",
-          table: "message_reactions",
+          event: 'INSERT',
+          schema: 'public',
+          table: 'message_reactions',
           filter: `conversation_id=eq.${conversationId}`,
         },
         (payload) => {
@@ -413,10 +439,10 @@ export function MessageThread({
             // the pill doesn't double up after a successful POST.
             const tempIdx = prev.findIndex(
               (r) =>
-                r.id.startsWith("temp-") &&
+                r.id.startsWith('temp-') &&
                 r.message_id === row.message_id &&
                 r.actor_type === row.actor_type &&
-                r.actor_id === row.actor_id,
+                r.actor_id === row.actor_id
             );
             if (tempIdx >= 0) {
               const copy = prev.slice();
@@ -425,34 +451,34 @@ export function MessageThread({
             }
             return [...prev, row];
           });
-        },
+        }
       )
       .on(
-        "postgres_changes",
+        'postgres_changes',
         {
-          event: "UPDATE",
-          schema: "public",
-          table: "message_reactions",
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'message_reactions',
           filter: `conversation_id=eq.${conversationId}`,
         },
         (payload) => {
           const row = payload.new as MessageReaction;
           setReactions((prev) => prev.map((r) => (r.id === row.id ? row : r)));
-        },
+        }
       )
       .on(
-        "postgres_changes",
+        'postgres_changes',
         {
-          event: "DELETE",
-          schema: "public",
-          table: "message_reactions",
+          event: 'DELETE',
+          schema: 'public',
+          table: 'message_reactions',
           filter: `conversation_id=eq.${conversationId}`,
         },
         (payload) => {
           const old = payload.old as Partial<MessageReaction>;
           if (!old?.id) return;
           setReactions((prev) => prev.filter((r) => r.id !== old.id));
-        },
+        }
       )
       .subscribe();
 
@@ -478,14 +504,13 @@ export function MessageThread({
   // is 0 the condition is false, so no further UPDATE is issued.
   useEffect(() => {
     if (!conversationId || !hasUnread) return;
-    const supabase = createClient();
-    supabase
-      .from("conversations")
-      .update({ unread_count: 0 })
-      .eq("id", conversationId)
-      .then(({ error }) => {
-        if (error) console.error("Failed to reset unread_count:", error);
-      });
+    void fetch('/api/inbox/read', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ conversation_id: conversationId }),
+    }).then((response) => {
+      if (!response.ok) console.error('Falha ao zerar mensagens não lidas');
+    });
   }, [conversationId, hasUnread]);
 
   // Auto-scroll to bottom on new messages
@@ -506,10 +531,10 @@ export function MessageThread({
       const optimisticMsg: Message = {
         id: tempId,
         conversation_id: conversation.id,
-        sender_type: "agent",
-        content_type: "text",
+        sender_type: 'agent',
+        content_type: 'text',
         content_text: text,
-        status: "sending",
+        status: 'sending',
         created_at: new Date().toISOString(),
         reply_to_message_id: replyToId,
       };
@@ -517,12 +542,12 @@ export function MessageThread({
       setReplyTo(null);
 
       try {
-        const res = await fetch("/api/whatsapp/send", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
+        const res = await fetch('/api/whatsapp/send', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             conversation_id: conversation.id,
-            message_type: "text",
+            message_type: 'text',
             content_text: text,
             reply_to_message_id: replyToId,
           }),
@@ -532,22 +557,22 @@ export function MessageThread({
 
         if (!res.ok) {
           const reason = payload?.error || `HTTP ${res.status}`;
-          console.error("Failed to send message:", reason);
+          console.error('Failed to send message:', reason);
           toast.error(`Falha ao enviar: ${reason}`);
           // Mark the optimistic bubble as failed so the user? sees what happened
-          onUpdateMessage(tempId, { status: "failed" });
+          onUpdateMessage(tempId, { status: 'failed' });
           return;
         }
 
         // Success — the realtime INSERT event will replace the temp bubble
         // with the real DB row. If realtime hasn't arrived yet, at least
         // flip status to 'sent' so the UI stops showing "sending".
-        onUpdateMessage(tempId, { status: "sent" });
+        onUpdateMessage(tempId, { status: 'sent' });
       } catch (err) {
-        console.error("Failed to send message:", err);
-        const reason = err instanceof Error ? err.message : "network error";
+        console.error('Failed to send message:', err);
+        const reason = err instanceof Error ? err.message : 'network error';
         toast.error(`Falha ao enviar: ${reason}`);
-        onUpdateMessage(tempId, { status: "failed" });
+        onUpdateMessage(tempId, { status: 'failed' });
       }
     },
     [conversation, onNewMessage, onUpdateMessage]
@@ -561,19 +586,19 @@ export function MessageThread({
       // recipient as the Meta caption when no caption was typed); other
       // kinds user? the caption as-is. Audio carries no caption.
       const contentText =
-        payload.kind === "document"
-          ? payload.caption || payload.filename || "Document"
+        payload.kind === 'document'
+          ? payload.caption || payload.filename || 'Document'
           : payload.caption;
 
       const tempId = `temp-${Date.now()}`;
       const optimisticMsg: Message = {
         id: tempId,
         conversation_id: conversation.id,
-        sender_type: "agent",
+        sender_type: 'agent',
         content_type: payload.kind,
         content_text: contentText,
         media_url: payload.mediaUrl,
-        status: "sending",
+        status: 'sending',
         created_at: new Date().toISOString(),
         reply_to_message_id: payload.replyToId,
       };
@@ -581,9 +606,9 @@ export function MessageThread({
       setReplyTo(null);
 
       try {
-        const res = await fetch("/api/whatsapp/send", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
+        const res = await fetch('/api/whatsapp/send', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             conversation_id: conversation.id,
             message_type: payload.kind,
@@ -598,25 +623,29 @@ export function MessageThread({
 
         if (!res.ok) {
           const reason = data?.error || `HTTP ${res.status}`;
-          console.error("Failed to send media:", reason);
+          console.error('Failed to send media:', reason);
           toast.error(`Falha ao enviar: ${reason}`);
-          onUpdateMessage(tempId, { status: "failed" });
+          onUpdateMessage(tempId, { status: 'failed' });
           // The upload never reached the recipient — GC the orphaned
           // object rather than leaving it in the public bucket forever.
-          void deleteAccountMedia(CHAT_MEDIA_BUCKET, payload.path).catch(() => {});
+          void deleteAccountMedia(CHAT_MEDIA_BUCKET, payload.path).catch(
+            () => {}
+          );
           return;
         }
 
-        onUpdateMessage(tempId, { status: "sent" });
+        onUpdateMessage(tempId, { status: 'sent' });
       } catch (err) {
-        console.error("Failed to send media:", err);
-        const reason = err instanceof Error ? err.message : "network error";
+        console.error('Failed to send media:', err);
+        const reason = err instanceof Error ? err.message : 'network error';
         toast.error(`Falha ao enviar: ${reason}`);
-        onUpdateMessage(tempId, { status: "failed" });
-        void deleteAccountMedia(CHAT_MEDIA_BUCKET, payload.path).catch(() => {});
+        onUpdateMessage(tempId, { status: 'failed' });
+        void deleteAccountMedia(CHAT_MEDIA_BUCKET, payload.path).catch(
+          () => {}
+        );
       }
     },
-    [conversation, onNewMessage, onUpdateMessage],
+    [conversation, onNewMessage, onUpdateMessage]
   );
 
   const handleStatusChange = useCallback(
@@ -625,9 +654,9 @@ export function MessageThread({
 
       const supabase = createClient();
       await supabase
-        .from("conversations")
+        .from('conversations')
         .update({ status })
-        .eq("id", conversation.id);
+        .eq('id', conversation.id);
 
       onStatusChange(conversation.id, status);
     },
@@ -641,86 +670,118 @@ export function MessageThread({
   const handleGenerateAi = useCallback(async () => {
     if (!conversation) return null;
     try {
-      const response = await fetch("/api/ai/suggest-reply", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ conversation_id: conversation.id, agent_id: selectedAiAgentId }),
+      const response = await fetch('/api/ai/suggest-reply', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          conversation_id: conversation.id,
+          agent_id: selectedAiAgentId,
+        }),
       });
       const body = await response.json().catch(() => ({}));
       if (!response.ok) {
-        toast.error(body.error ?? "Não foi possível gerar uma resposta");
+        toast.error(body.error ?? 'Não foi possível gerar uma resposta');
         return null;
       }
       toast.success(`Sugestão criada por ${body.agent_name}`);
       return body.suggestion as string;
     } catch {
-      toast.error("Falha de rede ao consultar a IA");
+      toast.error('Falha de rede ao consultar a IA');
       return null;
     }
   }, [conversation, selectedAiAgentId]);
 
-  const handleAiAgentChange = useCallback(async (agentId: string | null) => {
-    if (!conversation || !accountId) return;
-    const previous = selectedAiAgentId;
-    const previousMode = aiMode;
-    setSelectedAiAgentId(agentId);
-    setAiMode(agentId ? "assist" : "off");
-    const { error } = await createClient().from("conversation_ai_settings").upsert({
-      account_id: accountId,
-      conversation_id: conversation.id,
-      agent_id: agentId,
-      mode: agentId ? "assist" : "off",
-    }, { onConflict: "conversation_id" });
-    if (error) {
-      setSelectedAiAgentId(previous);
-      setAiMode(previousMode);
-      toast.error("Não foi possível alterar o agente da conversa");
-    } else {
-      toast.success(agentId ? "Agente vinculado à conversa" : "Copiloto desativado nesta conversa");
-    }
-  }, [conversation, selectedAiAgentId, aiMode, accountId]);
+  const handleAiAgentChange = useCallback(
+    async (agentId: string | null) => {
+      if (!conversation || !accountId) return;
+      const previous = selectedAiAgentId;
+      const previousMode = aiMode;
+      setSelectedAiAgentId(agentId);
+      setAiMode(agentId ? 'assist' : 'off');
+      const { error } = await createClient()
+        .from('conversation_ai_settings')
+        .upsert(
+          {
+            account_id: accountId,
+            conversation_id: conversation.id,
+            agent_id: agentId,
+            mode: agentId ? 'assist' : 'off',
+          },
+          { onConflict: 'conversation_id' }
+        );
+      if (error) {
+        setSelectedAiAgentId(previous);
+        setAiMode(previousMode);
+        toast.error('Não foi possível alterar o agente da conversa');
+      } else {
+        toast.success(
+          agentId
+            ? 'Agente vinculado à conversa'
+            : 'Copiloto desativado nesta conversa'
+        );
+      }
+    },
+    [conversation, selectedAiAgentId, aiMode, accountId]
+  );
 
-  const handleAiModeChange = useCallback(async (mode: "assist" | "auto") => {
-    if (!conversation || !accountId || !selectedAiAgentId) return;
-    const previous = aiMode;
-    setAiMode(mode);
-    const { error } = await createClient().from("conversation_ai_settings").upsert({
-      account_id: accountId,
-      conversation_id: conversation.id,
-      agent_id: selectedAiAgentId,
-      mode,
-    }, { onConflict: "conversation_id" });
-    if (error) {
-      setAiMode(previous);
-      toast.error("Não foi possível alterar o modo da IA");
-    } else {
-      toast.success(mode === "auto" ? "Respostas automáticas ativadas nesta conversa" : "Modo copiloto ativado");
-    }
-  }, [conversation, accountId, selectedAiAgentId, aiMode]);
+  const handleAiModeChange = useCallback(
+    async (mode: 'assist' | 'auto') => {
+      if (!conversation || !accountId || !selectedAiAgentId) return;
+      const previous = aiMode;
+      setAiMode(mode);
+      const { error } = await createClient()
+        .from('conversation_ai_settings')
+        .upsert(
+          {
+            account_id: accountId,
+            conversation_id: conversation.id,
+            agent_id: selectedAiAgentId,
+            mode,
+          },
+          { onConflict: 'conversation_id' }
+        );
+      if (error) {
+        setAiMode(previous);
+        toast.error('Não foi possível alterar o modo da IA');
+      } else {
+        toast.success(
+          mode === 'auto'
+            ? 'Respostas automáticas ativadas nesta conversa'
+            : 'Modo copiloto ativado'
+        );
+      }
+    },
+    [conversation, accountId, selectedAiAgentId, aiMode]
+  );
 
   const activateAutoMode = useCallback(async () => {
     if (!conversation || !accountId || !selectedAiAgentId) return;
     if (autoSettings.active_hour_end <= autoSettings.active_hour_start) {
-      toast.error("O horário final deve ser posterior ao inicial");
+      toast.error('O horário final deve ser posterior ao inicial');
       return;
     }
     setSavingAutoSettings(true);
-    const { error } = await createClient().from("conversation_ai_settings").upsert({
-      account_id: accountId,
-      conversation_id: conversation.id,
-      agent_id: selectedAiAgentId,
-      mode: "auto",
-      timezone: "America/Sao_Paulo",
-      ...autoSettings,
-    }, { onConflict: "conversation_id" });
+    const { error } = await createClient()
+      .from('conversation_ai_settings')
+      .upsert(
+        {
+          account_id: accountId,
+          conversation_id: conversation.id,
+          agent_id: selectedAiAgentId,
+          mode: 'auto',
+          timezone: 'America/Sao_Paulo',
+          ...autoSettings,
+        },
+        { onConflict: 'conversation_id' }
+      );
     setSavingAutoSettings(false);
     if (error) {
-      toast.error("Não foi possível ativar as respostas automáticas");
+      toast.error('Não foi possível ativar as respostas automáticas');
       return;
     }
-    setAiMode("auto");
+    setAiMode('auto');
     setAutoSettingsOpen(false);
-    toast.success("Modo automático ativado com limites de segurança");
+    toast.success('Modo automático ativado com limites de segurança');
   }, [conversation, accountId, selectedAiAgentId, autoSettings]);
 
   const handleSendTemplate = useCallback(
@@ -730,7 +791,7 @@ export function MessageThread({
         body: string[];
         headerText?: string;
         buttonParams?: Record<number, string>;
-      },
+      }
     ) => {
       if (!conversation) return;
 
@@ -740,22 +801,22 @@ export function MessageThread({
       const optimisticMsg: Message = {
         id: tempId,
         conversation_id: conversation.id,
-        sender_type: "agent",
-        content_type: "template",
+        sender_type: 'agent',
+        content_type: 'template',
         content_text: renderedBody,
         template_name: template.name,
-        status: "sending",
+        status: 'sending',
         created_at: new Date().toISOString(),
       };
       onNewMessage(optimisticMsg);
 
       try {
-        const res = await fetch("/api/whatsapp/send", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
+        const res = await fetch('/api/whatsapp/send', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             conversation_id: conversation.id,
-            message_type: "template",
+            message_type: 'template',
             template_name: template.name,
             template_language: template.language,
             // Structured params drive the new send-builder path
@@ -776,21 +837,21 @@ export function MessageThread({
 
         if (!res.ok) {
           const reason = payload?.error || `HTTP ${res.status}`;
-          console.error("Failed to send template:", reason);
+          console.error('Failed to send template:', reason);
           toast.error(`Falha ao enviar template: ${reason}`);
-          onUpdateMessage(tempId, { status: "failed" });
+          onUpdateMessage(tempId, { status: 'failed' });
           return;
         }
 
-        onUpdateMessage(tempId, { status: "sent" });
+        onUpdateMessage(tempId, { status: 'sent' });
       } catch (err) {
-        console.error("Failed to send template:", err);
-        const reason = err instanceof Error ? err.message : "network error";
+        console.error('Failed to send template:', err);
+        const reason = err instanceof Error ? err.message : 'network error';
         toast.error(`Falha ao enviar template: ${reason}`);
-        onUpdateMessage(tempId, { status: "failed" });
+        onUpdateMessage(tempId, { status: 'failed' });
       }
     },
-    [conversation, onNewMessage, onUpdateMessage],
+    [conversation, onNewMessage, onUpdateMessage]
   );
 
   // Build a quick id → Message map so reply quotes can be rendered without
@@ -812,17 +873,16 @@ export function MessageThread({
     return map;
   }, [reactions]);
 
-  const contactDisplayName = contact?.name || contact?.phone || "Customer";
+  const contactDisplayName = contact?.name || contact?.phone || 'Customer';
 
   // Author label for a quoted message: "You" when we sent the parent,
   // contact name when the customer sent it.
   const authorLabelFor = useCallback(
     (m: Message): string => {
-      const isAgentMsg =
-        m.sender_type === "agent" || m.sender_type === "bot";
-      return isAgentMsg ? "You" : contactDisplayName;
+      const isAgentMsg = m.sender_type === 'agent' || m.sender_type === 'bot';
+      return isAgentMsg ? 'You' : contactDisplayName;
     },
-    [contactDisplayName],
+    [contactDisplayName]
   );
 
   const handleStartReply = useCallback(
@@ -833,7 +893,7 @@ export function MessageThread({
         preview: buildReplyPreview(msg),
       });
     },
-    [authorLabelFor],
+    [authorLabelFor]
   );
 
   // Single reaction-set primitive. emoji === "" removes; otherwise adds/swaps.
@@ -843,11 +903,11 @@ export function MessageThread({
   const postReaction = useCallback(
     async (messageId: string, emoji: string) => {
       if (!user?.id || !conversation) {
-        console.warn("[reactions] missing user? or conversation");
+        console.warn('[reactions] missing user? or conversation');
         return;
       }
-      if (messageId.startsWith("temp-")) {
-        toast.error("Aguarde a mensagem terminar de enviar");
+      if (messageId.startsWith('temp-')) {
+        toast.error('Aguarde a mensagem terminar de enviar');
         return;
       }
 
@@ -862,10 +922,10 @@ export function MessageThread({
         const own = prev.find(
           (r) =>
             r.message_id === messageId &&
-            r.actor_type === "agent" &&
-            r.actor_id === userId,
+            r.actor_type === 'agent' &&
+            r.actor_id === userId
         );
-        if (emoji === "") return own ? prev.filter((r) => r !== own) : prev;
+        if (emoji === '') return own ? prev.filter((r) => r !== own) : prev;
         if (own) return prev.map((r) => (r === own ? { ...own, emoji } : r));
         return [
           ...prev,
@@ -873,7 +933,7 @@ export function MessageThread({
             id: `temp-${Date.now()}`,
             message_id: messageId,
             conversation_id: convId,
-            actor_type: "agent",
+            actor_type: 'agent',
             actor_id: userId,
             emoji,
             created_at: new Date().toISOString(),
@@ -882,9 +942,9 @@ export function MessageThread({
       });
 
       try {
-        const res = await fetch("/api/whatsapp/react", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
+        const res = await fetch('/api/whatsapp/react', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ message_id: messageId, emoji }),
         });
         if (!res.ok) {
@@ -892,12 +952,12 @@ export function MessageThread({
           throw new Error(payload?.error || `HTTP ${res.status}`);
         }
       } catch (err) {
-        const reason = err instanceof Error ? err.message : "network error";
+        const reason = err instanceof Error ? err.message : 'network error';
         toast.error(`Reaction failed: ${reason}`);
         setReactions(snapshot);
       }
     },
-    [conversation, user?.id],
+    [conversation, user?.id]
   );
 
   const handleAssignChange = useCallback(
@@ -906,53 +966,74 @@ export function MessageThread({
 
       const supabase = createClient();
       const { error } = await supabase
-        .from("conversations")
+        .from('conversations')
         .update({ assigned_agent_id: agentId })
-        .eq("id", conversation.id);
+        .eq('id', conversation.id);
 
       if (error) {
-        console.error("Failed to update assignment:", error);
-        toast.error("Failed to update assignment");
+        console.error('Failed to update assignment:', error);
+        toast.error('Não foi possível alterar o responsável');
         return;
       }
 
       onAssignChange(conversation.id, agentId);
     },
-    [conversation, onAssignChange],
+    [conversation, onAssignChange]
   );
 
-  const scheduleQuickFollowup = useCallback(async (delayHours: 1 | 24 | 72) => {
-    if (!conversation) return;
-    const response = await fetch("/api/ai/followups/schedule", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        conversation_id: conversation.id,
-        delay_hours: delayHours,
-        agent_id: selectedAiAgentId,
-      }),
-    });
-    const data = await response.json().catch(() => ({}));
-    if (!response.ok) {
-      toast.error(data.error || "Não foi possível agendar o follow-up");
-      return;
-    }
-    toast.success(`Follow-up agendado para ${new Date(data.next_run_at).toLocaleString("pt-BR")}`);
-  }, [conversation, selectedAiAgentId]);
+  const scheduleQuickFollowup = useCallback(
+    async (delayHours: number) => {
+      if (!conversation) return;
+      const response = await fetch('/api/ai/followups/schedule', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          conversation_id: conversation.id,
+          delay_hours: delayHours,
+          agent_id: selectedAiAgentId,
+        }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        toast.error(data.error || 'Não foi possível agendar o follow-up');
+        return;
+      }
+      toast.success(
+        `Follow-up agendado para ${new Date(data.next_run_at).toLocaleString('pt-BR')}`
+      );
+    },
+    [conversation, selectedAiAgentId]
+  );
+
+  const activeFollowupDelays = aiAgents.find(
+    (agent) => agent.id === selectedAiAgentId
+  )?.followup_quick_delays ??
+    aiAgents[0]?.followup_quick_delays ?? [1, 24, 72];
+  const followupDelayLabel = (hours: number) => {
+    if (hours === 1) return 'Daqui a 1 hora';
+    if (hours === 24) return 'Amanhã';
+    if (hours % 24 === 0) return `Daqui a ${hours / 24} dias`;
+    return `Daqui a ${hours} horas`;
+  };
 
   // Empty state — same WhatsApp-style doodle background as the active
   // thread below, so swapping between empty/selected doesn't change the
   // pattern under the user?'s eye.
   if (!conversation || !contact) {
     return (
-      <div className={cn("flex flex-1 flex-col items-center justify-center", DOODLE_BG_CLASSES)}>
-        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-muted">
-          <MessageSquare className="h-8 w-8 text-muted-foreground" />
+      <div
+        className={cn(
+          'flex flex-1 flex-col items-center justify-center',
+          DOODLE_BG_CLASSES
+        )}
+      >
+        <div className="bg-muted flex h-16 w-16 items-center justify-center rounded-full">
+          <MessageSquare className="text-muted-foreground h-8 w-8" />
         </div>
-        <h3 className="mt-4 text-sm font-medium text-muted-foreground">
+        <h3 className="text-muted-foreground mt-4 text-sm font-medium">
           Selecione uma conversa
         </h3>
-        <p className="mt-1 text-xs text-muted-foreground">
+        <p className="text-muted-foreground mt-1 text-xs">
           Escolha uma conversa à esquerda para começar a trocar mensagens
         </p>
       </div>
@@ -961,7 +1042,7 @@ export function MessageThread({
 
   const savedName = contact.name?.trim();
   const displayName =
-    savedName && !["você", "you"].includes(savedName.toLowerCase())
+    savedName && !['você', 'you'].includes(savedName.toLowerCase())
       ? savedName
       : contact.phone;
   const messageGroups = groupMessagesByDate(messages);
@@ -971,8 +1052,8 @@ export function MessageThread({
   const assignedAgentId = conversation.assigned_agent_id ?? null;
   const currentAssignee = profiles.find((p) => p.user_id === assignedAgentId);
   const assignLabel = assignedAgentId
-    ? (currentAssignee?.full_name ?? "Assigned")
-    : "Assign";
+    ? (currentAssignee?.full_name ?? 'Responsável')
+    : 'Atribuir';
 
   return (
     // `min-w-0` is load-bearing: the page already puts min-w-0 on the
@@ -983,10 +1064,10 @@ export function MessageThread({
     // clipped and the hover toolbar overlaps the Tags panel. Letting the
     // root shrink lets the bubbles' break-words / max-w caps apply.
     // Issue #257.
-    <div className={cn("flex min-w-0 flex-1 flex-col", DOODLE_BG_CLASSES)}>
+    <div className={cn('flex min-w-0 flex-1 flex-col', DOODLE_BG_CLASSES)}>
       {/* Header — solid card surface sits on top of the doodle so the
           name/avatar/dropdowns stay legible. */}
-      <div className="flex items-center justify-between gap-2 border-b border-border bg-card px-3 py-3 sm:px-4">
+      <div className="border-border bg-card flex items-center justify-between gap-2 border-b px-3 py-3 sm:px-4">
         <div className="flex min-w-0 items-center gap-2 sm:gap-3">
           {/* Back-to-list button — mobile only. Hidden on lg+ where the
               conversation list is always visible next to the thread. */}
@@ -995,76 +1076,109 @@ export function MessageThread({
               type="button"
               onClick={onBack}
               aria-label="Voltar para conversas"
-              className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground lg:hidden"
+              className="text-muted-foreground hover:bg-muted hover:text-foreground flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-md lg:hidden"
             >
               <ArrowLeft className="h-5 w-5" />
             </button>
           )}
-          <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-muted text-sm font-medium text-foreground">
+          <div className="bg-muted text-foreground flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full text-sm font-medium">
             {displayName.charAt(0).toUpperCase()}
           </div>
           <div className="min-w-0">
-            <h2 className="truncate text-sm font-semibold text-foreground">{displayName}</h2>
-            <p className="truncate text-xs text-muted-foreground">{contact.phone}</p>
+            <h2 className="text-foreground truncate text-sm font-semibold">
+              {displayName}
+            </h2>
+            <p className="text-muted-foreground truncate text-xs">
+              {contact.phone}
+            </p>
             {contact.lead_source && (
-              <span className="mt-0.5 inline-flex rounded-full bg-primary/10 px-1.5 py-0.5 text-[9px] font-medium text-primary">
-                {contact.lead_source === "meta_ads"
-                  ? "Anúncio Meta"
-                  : contact.lead_source === "google_ads"
-                    ? "Google Ads"
-                    : contact.lead_source === "whatsapp"
-                      ? "WhatsApp"
+              <span className="bg-primary/10 text-primary mt-0.5 inline-flex rounded-full px-1.5 py-0.5 text-[9px] font-medium">
+                {contact.lead_source === 'meta_ads'
+                  ? 'Anúncio Meta'
+                  : contact.lead_source === 'google_ads'
+                    ? 'Google Ads'
+                    : contact.lead_source === 'whatsapp'
+                      ? 'WhatsApp'
                       : contact.lead_source}
               </span>
             )}
           </div>
           {/* Session timer badge — hidden on the narrowest phones so
               the name + back arrow keep their room. */}
-          {officialMetaConnected && <Badge
-            variant="outline"
-            className={cn(
-              "ml-1 hidden gap-1 border-border text-[10px] sm:inline-flex sm:ml-2",
-              sessionInfo.expired ? "text-red-400" : "text-primary"
-            )}
-          >
-            <Clock className="h-3 w-3" />
-            {sessionInfo.remaining}
-          </Badge>}
+          {officialMetaConnected && (
+            <Badge
+              variant="outline"
+              className={cn(
+                'border-border ml-1 hidden gap-1 text-[10px] sm:ml-2 sm:inline-flex',
+                sessionInfo.expired ? 'text-red-400' : 'text-primary'
+              )}
+            >
+              <Clock className="h-3 w-3" />
+              {sessionInfo.remaining}
+            </Badge>
+          )}
         </div>
 
         <div className="flex items-center gap-2">
+          <Link
+            href={`/pipelines?new=1&contact=${contact.id}`}
+            title="Cadastrar venda para este cliente"
+            className="bg-primary/10 text-primary hover:bg-primary/20 inline-flex h-7 items-center justify-center gap-1 rounded-md px-2 text-xs font-medium"
+          >
+            <BadgeDollarSign className="h-3.5 w-3.5" />
+            <span className="hidden xl:inline">Nova Venda</span>
+          </Link>
           <DropdownMenu>
             <DropdownMenuTrigger
               title="Agendar follow-up"
-              className="inline-flex h-7 items-center justify-center gap-1 rounded-md px-2 text-xs text-muted-foreground hover:bg-muted hover:text-foreground"
+              className="text-muted-foreground hover:bg-muted hover:text-foreground inline-flex h-7 items-center justify-center gap-1 rounded-md px-2 text-xs"
             >
               <CalendarClock className="h-3.5 w-3.5" />
               <span className="hidden xl:inline">Follow-up</span>
               <ChevronDown className="h-3 w-3" />
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="border-border bg-popover">
-              <DropdownMenuItem onClick={() => void scheduleQuickFollowup(1)}>Daqui a 1 hora</DropdownMenuItem>
-              <DropdownMenuItem onClick={() => void scheduleQuickFollowup(24)}>Amanhã</DropdownMenuItem>
-              <DropdownMenuItem onClick={() => void scheduleQuickFollowup(72)}>Daqui a 3 dias</DropdownMenuItem>
+            <DropdownMenuContent
+              align="end"
+              className="border-border bg-popover"
+            >
+              {activeFollowupDelays.map((hours) => (
+                <DropdownMenuItem
+                  key={hours}
+                  onClick={() => void scheduleQuickFollowup(hours)}
+                >
+                  {followupDelayLabel(hours)}
+                </DropdownMenuItem>
+              ))}
             </DropdownMenuContent>
           </DropdownMenu>
           <DropdownMenu>
             <DropdownMenuTrigger
               title="Agente de IA da conversa"
               className={cn(
-                "inline-flex h-7 items-center justify-center gap-1 rounded-md px-2 text-xs hover:bg-muted",
-                selectedAiAgentId ? (aiMode === "auto" ? "bg-emerald-500/10 text-emerald-400" : "bg-primary/10 text-primary") : "text-muted-foreground",
+                'hover:bg-muted inline-flex h-7 items-center justify-center gap-1 rounded-md px-2 text-xs',
+                selectedAiAgentId
+                  ? aiMode === 'auto'
+                    ? 'bg-emerald-500/10 text-emerald-400'
+                    : 'bg-primary/10 text-primary'
+                  : 'text-muted-foreground'
               )}
             >
               <Bot className="h-3.5 w-3.5" />
               <span className="hidden xl:inline">
-                {aiAgents.find((agent) => agent.id === selectedAiAgentId)?.name ?? "IA"}{aiMode === "auto" ? " · Auto" : ""}
+                {aiAgents.find((agent) => agent.id === selectedAiAgentId)
+                  ?.name ?? 'IA'}
+                {aiMode === 'auto' ? ' · Auto' : ''}
               </span>
               <ChevronDown className="h-3 w-3" />
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="border-border bg-popover">
+            <DropdownMenuContent
+              align="end"
+              className="border-border bg-popover"
+            >
               {aiAgents.length === 0 ? (
-                <DropdownMenuItem disabled>Nenhum agente ativo</DropdownMenuItem>
+                <DropdownMenuItem disabled>
+                  Nenhum agente ativo
+                </DropdownMenuItem>
               ) : (
                 aiAgents.map((agent) => (
                   <DropdownMenuItem
@@ -1073,10 +1187,12 @@ export function MessageThread({
                   >
                     <span className="flex-1">
                       <span className="block">{agent.name}</span>
-                      <span className="text-[10px] text-muted-foreground">{agent.role}</span>
+                      <span className="text-muted-foreground text-[10px]">
+                        {agent.role}
+                      </span>
                     </span>
                     {agent.id === selectedAiAgentId && (
-                      <Check className="ml-3 h-3.5 w-3.5 text-primary" />
+                      <Check className="text-primary ml-3 h-3.5 w-3.5" />
                     )}
                   </DropdownMenuItem>
                 ))
@@ -1084,14 +1200,32 @@ export function MessageThread({
               {selectedAiAgentId && (
                 <>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => void handleAiModeChange("assist")}>
-                    <span className="flex-1"><span className="block">Modo copiloto</span><span className="text-[10px] text-muted-foreground">Sugere, mas você envia</span></span>
-                    {aiMode === "assist" && <Check className="ml-3 h-3.5 w-3.5 text-primary" />}
+                  <DropdownMenuItem
+                    onClick={() => void handleAiModeChange('assist')}
+                  >
+                    <span className="flex-1">
+                      <span className="block">Modo copiloto</span>
+                      <span className="text-muted-foreground text-[10px]">
+                        Sugere, mas você envia
+                      </span>
+                    </span>
+                    {aiMode === 'assist' && (
+                      <Check className="text-primary ml-3 h-3.5 w-3.5" />
+                    )}
                   </DropdownMenuItem>
                   {canEditAi && (
                     <DropdownMenuItem onClick={() => setAutoSettingsOpen(true)}>
-                      <span className="flex-1"><span className="block text-emerald-400">Modo automático</span><span className="text-[10px] text-muted-foreground">Responde com limites de segurança</span></span>
-                      {aiMode === "auto" && <Check className="ml-3 h-3.5 w-3.5 text-emerald-400" />}
+                      <span className="flex-1">
+                        <span className="block text-emerald-400">
+                          Modo automático
+                        </span>
+                        <span className="text-muted-foreground text-[10px]">
+                          Responde com limites de segurança
+                        </span>
+                      </span>
+                      {aiMode === 'auto' && (
+                        <Check className="ml-3 h-3.5 w-3.5 text-emerald-400" />
+                      )}
                     </DropdownMenuItem>
                   )}
                   <DropdownMenuSeparator />
@@ -1115,13 +1249,15 @@ export function MessageThread({
               type="button"
               onClick={onToggleContactPanel}
               aria-label={
-                contactPanelOpen ? "Ocultar painel do contato" : "Mostrar painel do contato"
+                contactPanelOpen
+                  ? 'Ocultar painel do contato'
+                  : 'Mostrar painel do contato'
               }
               aria-pressed={contactPanelOpen}
-              title={contactPanelOpen ? "Ocultar contato" : "Mostrar contato"}
+              title={contactPanelOpen ? 'Ocultar contato' : 'Mostrar contato'}
               className={cn(
-                "hidden h-7 w-7 items-center justify-center rounded-md transition-colors hover:bg-muted hover:text-foreground lg:inline-flex",
-                contactPanelOpen ? "text-primary" : "text-muted-foreground",
+                'hover:bg-muted hover:text-foreground hidden h-7 w-7 items-center justify-center rounded-md transition-colors lg:inline-flex',
+                contactPanelOpen ? 'text-primary' : 'text-muted-foreground'
               )}
             >
               {contactPanelOpen ? (
@@ -1145,23 +1281,25 @@ export function MessageThread({
               aria-label="Atualizar conversa"
               title="Atualizar"
               className={cn(
-                "inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-60",
+                'text-muted-foreground hover:bg-muted hover:text-foreground inline-flex h-7 w-7 items-center justify-center rounded-md transition-colors disabled:opacity-60'
               )}
             >
               <RefreshCw
-                className={cn("h-3.5 w-3.5", isRefreshing && "animate-spin")}
+                className={cn('h-3.5 w-3.5', isRefreshing && 'animate-spin')}
               />
             </button>
           )}
 
           {/* Status dropdown */}
           <DropdownMenu>
-            <DropdownMenuTrigger className={cn(
-                  "inline-flex items-center justify-center h-7 gap-1 px-2 text-xs rounded-md hover:bg-muted",
-                  currentStatus?.color ?? "text-muted-foreground"
-                )}>
-                {currentStatus?.label ?? "Status"}
-                <ChevronDown className="h-3 w-3" />
+            <DropdownMenuTrigger
+              className={cn(
+                'hover:bg-muted inline-flex h-7 items-center justify-center gap-1 rounded-md px-2 text-xs',
+                currentStatus?.color ?? 'text-muted-foreground'
+              )}
+            >
+              {currentStatus?.label ?? 'Status'}
+              <ChevronDown className="h-3 w-3" />
             </DropdownMenuTrigger>
             <DropdownMenuContent
               align="end"
@@ -1171,7 +1309,7 @@ export function MessageThread({
                 <DropdownMenuItem
                   key={opt.value}
                   onClick={() => handleStatusChange(opt.value)}
-                  className={cn("text-sm", opt.color)}
+                  className={cn('text-sm', opt.color)}
                 >
                   {opt.label}
                 </DropdownMenuItem>
@@ -1183,8 +1321,8 @@ export function MessageThread({
           <DropdownMenu>
             <DropdownMenuTrigger
               className={cn(
-                "inline-flex items-center justify-center h-7 gap-1 px-2 text-xs rounded-md hover:bg-muted",
-                assignedAgentId ? "text-primary" : "text-muted-foreground"
+                'hover:bg-muted inline-flex h-7 items-center justify-center gap-1 rounded-md px-2 text-xs',
+                assignedAgentId ? 'text-primary' : 'text-muted-foreground'
               )}
             >
               <UserPlus className="h-3 w-3" />
@@ -1196,7 +1334,10 @@ export function MessageThread({
               className="border-border bg-popover"
             >
               {profiles.length === 0 ? (
-                <DropdownMenuItem disabled className="text-sm text-muted-foreground">
+                <DropdownMenuItem
+                  disabled
+                  className="text-muted-foreground text-sm"
+                >
                   Nenhum colega disponível
                 </DropdownMenuItem>
               ) : (
@@ -1207,13 +1348,13 @@ export function MessageThread({
                       key={p.id}
                       onClick={() => handleAssignChange(p.user_id)}
                       className={cn(
-                        "text-sm",
-                        isSelected ? "text-primary" : "text-popover-foreground"
+                        'text-sm',
+                        isSelected ? 'text-primary' : 'text-popover-foreground'
                       )}
                     >
                       <span className="flex-1">
                         {p.full_name}
-                        {p.user_id === user?.id ? " (eu)" : ""}
+                        {p.user_id === user?.id ? ' (eu)' : ''}
                       </span>
                       {isSelected && <Check className="ml-2 h-3 w-3" />}
                     </DropdownMenuItem>
@@ -1225,7 +1366,7 @@ export function MessageThread({
                   <DropdownMenuSeparator className="bg-border" />
                   <DropdownMenuItem
                     onClick={() => handleAssignChange(null)}
-                    className="text-sm text-muted-foreground"
+                    className="text-muted-foreground text-sm"
                   >
                     Remover atribuição
                   </DropdownMenuItem>
@@ -1240,12 +1381,14 @@ export function MessageThread({
       <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-4">
         {loading ? (
           <div className="flex items-center justify-center py-12">
-            <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+            <div className="border-primary h-5 w-5 animate-spin rounded-full border-2 border-t-transparent" />
           </div>
         ) : messages.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-12">
-            <p className="text-sm text-muted-foreground">Nenhuma mensagem ainda</p>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-muted-foreground text-sm">
+              Nenhuma mensagem ainda
+            </p>
+            <p className="text-muted-foreground text-xs">
               Envie um template para iniciar a conversa
             </p>
           </div>
@@ -1255,7 +1398,7 @@ export function MessageThread({
               <div key={group.date}>
                 {/* Date separator */}
                 <div className="mb-4 flex items-center justify-center">
-                  <span className="rounded-full bg-muted px-3 py-1 text-[10px] font-medium text-muted-foreground">
+                  <span className="bg-muted text-muted-foreground rounded-full px-3 py-1 text-[10px] font-medium">
                     {formatDateSeparator(group.date)}
                   </span>
                 </div>
@@ -1277,10 +1420,9 @@ export function MessageThread({
                     const handlePillToggle = (emoji: string) => {
                       const own = msgReactions?.find(
                         (r) =>
-                          r.actor_type === "agent" &&
-                          r.actor_id === user?.id,
+                          r.actor_type === 'agent' && r.actor_id === user?.id
                       );
-                      const next = own?.emoji === emoji ? "" : emoji;
+                      const next = own?.emoji === emoji ? '' : emoji;
                       void postReaction(msg.id, next);
                     };
                     return (
@@ -1329,26 +1471,122 @@ export function MessageThread({
       <Dialog open={autoSettingsOpen} onOpenChange={setAutoSettingsOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2"><Bot className="h-5 w-5 text-emerald-400" /> Ativar respostas automáticas</DialogTitle>
-            <DialogDescription>O agente selecionado poderá responder este contato sem revisão humana, respeitando os limites abaixo.</DialogDescription>
+            <DialogTitle className="flex items-center gap-2">
+              <Bot className="h-5 w-5 text-emerald-400" /> Ativar respostas
+              automáticas
+            </DialogTitle>
+            <DialogDescription>
+              O agente selecionado poderá responder este contato sem revisão
+              humana, respeitando os limites abaixo.
+            </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div>
-              <Label htmlFor="auto-limit">Máximo de respostas em 24 horas</Label>
-              <Input id="auto-limit" type="number" min={1} max={20} value={autoSettings.max_auto_replies_24h} onChange={(event) => setAutoSettings((current) => ({ ...current, max_auto_replies_24h: Math.min(20, Math.max(1, Number(event.target.value))) }))} className="mt-1.5" />
+              <Label htmlFor="auto-limit">
+                Máximo de respostas em 24 horas
+              </Label>
+              <Input
+                id="auto-limit"
+                type="number"
+                min={1}
+                max={20}
+                value={autoSettings.max_auto_replies_24h}
+                onChange={(event) =>
+                  setAutoSettings((current) => ({
+                    ...current,
+                    max_auto_replies_24h: Math.min(
+                      20,
+                      Math.max(1, Number(event.target.value))
+                    ),
+                  }))
+                }
+                className="mt-1.5"
+              />
             </div>
             <div className="grid grid-cols-2 gap-3">
-              <div><Label htmlFor="auto-start">Início</Label><Input id="auto-start" type="number" min={0} max={23} value={autoSettings.active_hour_start} onChange={(event) => setAutoSettings((current) => ({ ...current, active_hour_start: Math.min(23, Math.max(0, Number(event.target.value))) }))} className="mt-1.5" /></div>
-              <div><Label htmlFor="auto-end">Término</Label><Input id="auto-end" type="number" min={1} max={24} value={autoSettings.active_hour_end} onChange={(event) => setAutoSettings((current) => ({ ...current, active_hour_end: Math.min(24, Math.max(1, Number(event.target.value))) }))} className="mt-1.5" /></div>
+              <div>
+                <Label htmlFor="auto-start">Início</Label>
+                <Input
+                  id="auto-start"
+                  type="number"
+                  min={0}
+                  max={23}
+                  value={autoSettings.active_hour_start}
+                  onChange={(event) =>
+                    setAutoSettings((current) => ({
+                      ...current,
+                      active_hour_start: Math.min(
+                        23,
+                        Math.max(0, Number(event.target.value))
+                      ),
+                    }))
+                  }
+                  className="mt-1.5"
+                />
+              </div>
+              <div>
+                <Label htmlFor="auto-end">Término</Label>
+                <Input
+                  id="auto-end"
+                  type="number"
+                  min={1}
+                  max={24}
+                  value={autoSettings.active_hour_end}
+                  onChange={(event) =>
+                    setAutoSettings((current) => ({
+                      ...current,
+                      active_hour_end: Math.min(
+                        24,
+                        Math.max(1, Number(event.target.value))
+                      ),
+                    }))
+                  }
+                  className="mt-1.5"
+                />
+              </div>
             </div>
-            <p className="-mt-2 text-xs text-muted-foreground">Horário de Brasília · America/Sao_Paulo</p>
-            <label className="flex items-center justify-between rounded-xl border border-border bg-muted/30 p-3">
-              <span><strong className="block text-sm">Pausar quando houver responsável</strong><span className="text-xs text-muted-foreground">A IA não responde conversas atribuídas a uma pessoa.</span></span>
-              <Switch checked={autoSettings.require_unassigned} onCheckedChange={(value) => setAutoSettings((current) => ({ ...current, require_unassigned: value }))} />
+            <p className="text-muted-foreground -mt-2 text-xs">
+              Horário de Brasília · America/Sao_Paulo
+            </p>
+            <label className="border-border bg-muted/30 flex items-center justify-between rounded-xl border p-3">
+              <span>
+                <strong className="block text-sm">
+                  Pausar quando houver responsável
+                </strong>
+                <span className="text-muted-foreground text-xs">
+                  A IA não responde conversas atribuídas a uma pessoa.
+                </span>
+              </span>
+              <Switch
+                checked={autoSettings.require_unassigned}
+                onCheckedChange={(value) =>
+                  setAutoSettings((current) => ({
+                    ...current,
+                    require_unassigned: value,
+                  }))
+                }
+              />
             </label>
-            <div className="rounded-xl border border-amber-500/25 bg-amber-500/10 p-3 text-xs leading-relaxed text-amber-200">Se a API falhar, o sistema interrompe o modo automático e retorna a conversa para o copiloto.</div>
+            <div className="rounded-xl border border-amber-500/25 bg-amber-500/10 p-3 text-xs leading-relaxed text-amber-200">
+              Se a API falhar, o sistema interrompe o modo automático e retorna
+              a conversa para o copiloto.
+            </div>
           </div>
-          <DialogFooter><Button variant="outline" onClick={() => setAutoSettingsOpen(false)}>Cancelar</Button><Button onClick={() => void activateAutoMode()} disabled={savingAutoSettings} className="bg-emerald-600 text-white hover:bg-emerald-500">{savingAutoSettings ? "Ativando..." : "Confirmar e ativar"}</Button></DialogFooter>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setAutoSettingsOpen(false)}
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={() => void activateAutoMode()}
+              disabled={savingAutoSettings}
+              className="bg-emerald-600 text-white hover:bg-emerald-500"
+            >
+              {savingAutoSettings ? 'Ativando...' : 'Confirmar e ativar'}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
