@@ -65,7 +65,17 @@ function adReferral(data: EvolutionMessage) {
 
 export async function importEvolutionMessage(accountId: string, data: EvolutionMessage) {
   const db = supabaseAdmin();
-  const jid = data.key?.remoteJidAlt || data.key?.remoteJid || "";
+  const jidCandidates = [data.key?.remoteJid, data.key?.remoteJidAlt].filter(
+    (value): value is string => Boolean(value),
+  );
+  const jid =
+    jidCandidates.find(
+      (value) =>
+        value.endsWith("@s.whatsapp.net") || value.endsWith("@c.us"),
+    ) ||
+    jidCandidates.find((value) => !value.endsWith("@lid")) ||
+    jidCandidates[0] ||
+    "";
   if (jid.endsWith("@g.us") || jid.endsWith("@broadcast")) return "ignored" as const;
 
   const phone = jid.split("@")[0].replace(/\D/g, "");

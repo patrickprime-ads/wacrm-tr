@@ -109,7 +109,7 @@ export function DealForm({
   const [newContactMode, setNewContactMode] = useState(false);
   const [newContactName, setNewContactName] = useState('');
   const [newContactPhone, setNewContactPhone] = useState('');
-  const [newContactSource, setNewContactSource] = useState('presencial');
+  const [leadSource, setLeadSource] = useState('presencial');
   const [stageId, setStageId] = useState('');
   const [assignedTo, setAssignedTo] = useState('');
   const [expectedCloseDate, setExpectedCloseDate] = useState('');
@@ -121,6 +121,8 @@ export function DealForm({
 
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [profiles, setProfiles] = useState<Profile[]>([]);
+  const [availableProducts, setAvailableProducts] =
+    useState<QuickProduct[]>(QUICK_PRODUCTS);
   const [linkedConversation, setLinkedConversation] =
     useState<Conversation | null>(null);
 
@@ -150,6 +152,7 @@ export function DealForm({
       setSelectedProducts(deal.selected_products ?? []);
       setLeadTemperature(deal.contact?.lead_temperature ?? 'curioso');
       setResponseTimeBucket(deal.contact?.response_time_bucket ?? '');
+      setLeadSource(deal.contact?.lead_source ?? 'presencial');
       setNewContactMode(false);
     } else {
       setTitle('');
@@ -166,7 +169,7 @@ export function DealForm({
       setNewContactMode(false);
       setNewContactName('');
       setNewContactPhone('');
-      setNewContactSource('presencial');
+      setLeadSource('presencial');
     }
   }, [open, deal, defaultStageId, defaultContactId, stages]);
   /* eslint-enable react-hooks/set-state-in-effect */
@@ -176,13 +179,38 @@ export function DealForm({
     if (!open) return;
     let cancelled = false;
     (async () => {
-      const [c, p] = await Promise.all([
+      const [c, p, productsResult] = await Promise.all([
         supabase.from('contacts').select('*').order('name'),
         supabase.from('profiles').select('*').order('full_name'),
+        supabase
+          .from('products')
+          .select('name,category,price,detail')
+          .eq('active', true)
+          .order('category')
+          .order('name'),
       ]);
       if (cancelled) return;
       setContacts((c.data ?? []) as Contact[]);
       setProfiles((p.data ?? []) as Profile[]);
+      if (productsResult.data?.length) {
+        const customProducts = productsResult.data.map((product) => ({
+            name: product.name,
+            group: product.category,
+            price: product.price == null ? null : Number(product.price),
+            detail: product.detail ?? undefined,
+          }));
+        const customNames = new Set(
+          customProducts.map((product) => product.name.toLocaleLowerCase('pt-BR')),
+        );
+        setAvailableProducts([
+          ...QUICK_PRODUCTS.filter(
+            (product) => !customNames.has(product.name.toLocaleLowerCase('pt-BR')),
+          ),
+          ...customProducts,
+        ]);
+      } else {
+        setAvailableProducts(QUICK_PRODUCTS);
+      }
     })();
     return () => {
       cancelled = true;
@@ -241,7 +269,7 @@ export function DealForm({
           name: newContactName.trim(),
           phone: normalizedPhone,
           phone_normalized: normalizedPhone,
-          lead_source: newContactSource,
+          lead_source: leadSource,
           lead_temperature: leadTemperature,
           response_time_bucket: responseTimeBucket || null,
         })
@@ -275,6 +303,7 @@ export function DealForm({
       .update({
         lead_temperature: leadTemperature,
         response_time_bucket: responseTimeBucket || null,
+        lead_source: leadSource,
       })
       .eq('id', resolvedContactId);
 
@@ -332,7 +361,7 @@ export function DealForm({
       : contacts.find((contact) => contact.id === contactId)?.name?.trim();
     const primaryName = next[0];
     setTitle(primaryName ? `${primaryName}${contactName ? ` — ${contactName}` : ''}` : '');
-    const total = QUICK_PRODUCTS.filter(
+    const total = availableProducts.filter(
       (item) => next.includes(item.name) && item.price !== null,
     ).reduce((sum, item) => sum + (item.price ?? 0), 0);
     setValue(total ? String(total) : '');
@@ -437,24 +466,17 @@ export function DealForm({
                     placeholder="WhatsApp com DDD"
                     inputMode="tel"
                   />
-                  <select
-                    value={newContactSource}
-                    onChange={(e) => setNewContactSource(e.target.value)}
-                    className="border-border bg-muted h-9 rounded-lg border px-2.5 text-sm"
-                  >
-                    <option value="meta_ads">Meta</option>
-                    <option value="google_ads">Google</option>
-                    <option value="referral">Indicação</option>
-                    <option value="presencial">Presencial</option>
-                    <option value="phone">Ligação</option>
-                    <option value="active_base">Base ativa</option>
-                    <option value="other">Outros</option>
-                  </select>
                 </div>
               ) : (
                 <select
                   value={contactId}
-                  onChange={(e) => setContactId(e.target.value)}
+                  onChange={(e) => {
+                    setContactId(e.target.value);
+                    const selected = contacts.find(
+                      (contact) => contact.id === e.target.value,
+                    );
+                    setLeadSource(selected?.lead_source ?? 'presencial');
+                  }}
                   className="border-border bg-muted text-foreground focus:border-primary focus:ring-primary h-9 w-full rounded-lg border px-2.5 text-sm outline-none focus:ring-1"
                 >
                   <option value="">Selecione um contato</option>
@@ -477,6 +499,28 @@ export function DealForm({
               )}
             </div>
 
+            <div className="grid gap-2">
+              <Label className="text-muted-foreground">Origem do lead</Label>
+              <select
+                value={leadSource}
+                onChange={(event) => setLeadSource(event.target.value)}
+                className="border-border bg-muted text-foreground focus:border-primary h-9 w-full rounded-lg border px-2.5 text-sm outline-none"
+              >
+                <option value="meta_ads">Meta</option>
+                <option value="google_ads">Google</option>
+                <option value="referral">Indicação</option>
+                <option value="presencial">Presencial</option>
+                <option value="base">Base</option>
+                <option value="phone">Ligação</option>
+                <option value="active_base">Base ativa</option>
+                <option value="whatsapp">WhatsApp</option>
+                <option value="other">Outros</option>
+              </select>
+              <p className="text-xs text-muted-foreground">
+                Você pode corrigir a origem manualmente quando necessário.
+              </p>
+            </div>
+
             {(
               <div className="grid gap-2">
                 <div>
@@ -488,14 +532,14 @@ export function DealForm({
                   </p>
                 </div>
                 <div className="space-y-4">
-                  {[...new Set(QUICK_PRODUCTS.map((product) => product.group))].map(
+                  {[...new Set(availableProducts.map((product) => product.group))].map(
                     (group) => (
                       <section key={group}>
                         <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                           {group}
                         </h3>
                         <div className="grid grid-cols-2 gap-2">
-                          {QUICK_PRODUCTS.filter(
+                          {availableProducts.filter(
                             (product) => product.group === group,
                           ).map((product) => (
                             <button
@@ -675,7 +719,7 @@ export function DealForm({
                 <p className="text-muted-foreground text-xs font-medium tracking-wider uppercase">
                   Status
                 </p>
-                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                <div className="grid grid-cols-1 gap-2 px-1">
                   <Button
                     type="button"
                     onClick={() => handleStatusChange('won')}

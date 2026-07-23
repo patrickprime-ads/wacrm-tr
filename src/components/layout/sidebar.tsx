@@ -11,6 +11,7 @@ import {
   Crown,
   Bot,
   ClipboardList,
+  Flame,
   GitBranch,
   LayoutDashboard,
   LogOut,
@@ -22,7 +23,6 @@ import {
   UserCog,
   Users,
   UsersRound,
-  Workflow,
   X,
   Zap,
 } from "lucide-react";
@@ -105,14 +105,14 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
   const t = useTranslations('nav');
   const allNavItems: (NavItem & { adminOnly?: boolean })[] = [
   { href: "/dashboard", label: t('dashboard'), icon: LayoutDashboard },
+  { href: "/pipelines", label: "Pipeline de Vendas", icon: GitBranch },
   { href: "/inbox", label: t('inbox'), icon: MessageSquare },
   { href: "/contacts", label: t('contacts'), icon: Users },
-  { href: "/pipelines", label: t('pipelines'), icon: GitBranch },
+  { href: "/lead-scoring", label: "Lead Scoring", icon: Flame },
   { href: "/lead-tracking", label: "Tracking de Leads", icon: Target, adminOnly: true },
   { href: "/ai-agents", label: "Agentes IA", icon: Bot, adminOnly: true },
   { href: "/automations", label: t('automations'), icon: Zap, adminOnly: true },
-  { href: "/flows", label: t('flows'), icon: Workflow, beta: true, adminOnly: true },
-  { href: "/daily-summary", label: "Resumo do Dia", icon: ClipboardList },
+  { href: "/daily-summary", label: "Relatórios", icon: ClipboardList },
 ];
   const navItems = allNavItems.filter((item) => !item.adminOnly || accountRole === "owner" || accountRole === "admin");
 

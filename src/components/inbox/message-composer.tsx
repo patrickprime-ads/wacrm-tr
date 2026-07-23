@@ -563,7 +563,7 @@ export function MessageComposer({
             size="sm"
             canAct={!readOnly}
             gateReason="send messages"
-            title={readOnly ? undefined : 'Send template'}
+            title={readOnly ? undefined : 'Enviar modelo'}
             className="text-muted-foreground hover:text-foreground h-9 w-9 shrink-0 p-0"
             onClick={onOpenTemplates}
           >

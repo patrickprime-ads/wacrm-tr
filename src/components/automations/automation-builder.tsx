@@ -88,16 +88,16 @@ interface StepMeta {
 }
 
 const STEP_META: Record<AutomationStepType, StepMeta> = {
-  send_message: { label: "Send Message", icon: MessageSquare, border: "border-l-primary" },
-  send_template: { label: "Send Template", icon: FileText, border: "border-l-primary" },
-  add_tag: { label: "Add Tag", icon: Tag, border: "border-l-primary" },
-  remove_tag: { label: "Remove Tag", icon: TagIcon, border: "border-l-primary" },
-  assign_conversation: { label: "Assign Conversation", icon: UserCheck, border: "border-l-primary" },
-  update_contact_field: { label: "Update Contact Field", icon: PencilLine, border: "border-l-primary" },
-  create_deal: { label: "Criar negócio", icon: Briefcase, border: "border-l-primary" },
+  send_message: { label: "Enviar mensagem", icon: MessageSquare, border: "border-l-primary" },
+  send_template: { label: "Enviar modelo", icon: FileText, border: "border-l-primary" },
+  add_tag: { label: "Adicionar tag", icon: Tag, border: "border-l-primary" },
+  remove_tag: { label: "Remover tag", icon: TagIcon, border: "border-l-primary" },
+  assign_conversation: { label: "Atribuir conversa", icon: UserCheck, border: "border-l-primary" },
+  update_contact_field: { label: "Atualizar campo do contato", icon: PencilLine, border: "border-l-primary" },
+  create_deal: { label: "Criar venda", icon: Briefcase, border: "border-l-primary" },
   wait: { label: "Espera", icon: Hourglass, border: "border-l-border" },
-  condition: { label: "Condi??o (If/Else)", icon: GitBranch, border: "border-l-amber-500" },
-  send_webhook: { label: "Send Webhook", icon: Webhook, border: "border-l-primary" },
+  condition: { label: "Condição (Se/Senão)", icon: GitBranch, border: "border-l-amber-500" },
+  send_webhook: { label: "Enviar webhook", icon: Webhook, border: "border-l-primary" },
   close_conversation: { label: "Encerrar conversa", icon: CircleSlash, border: "border-l-primary" },
 }
 
@@ -116,17 +116,17 @@ const ADDABLE_STEPS: AutomationStepType[] = [
 ]
 
 const TRIGGER_OPTIONS: { value: AutomationTriggerType; label: string; hint: string }[] = [
-  { value: "new_message_received", label: "New Message Received", hint: "Any incoming message" },
+  { value: "new_message_received", label: "Nova mensagem recebida", hint: "Qualquer mensagem recebida" },
   {
     value: "first_inbound_message",
-    label: "First Message from Contact",
-    hint: "First time this contact ever messages you (works for manually-added contacts too)",
+    label: "Primeira mensagem do contato",
+    hint: "Primeira vez que este contato envia uma mensagem",
   },
-  { value: "keyword_match", label: "Keyword Match", hint: "Message contains specific keyword(s)" },
-  { value: "new_contact_created", label: "Novo contato criado", hint: "Quando um contato ? criado automaticamente a partir de uma mensagem recebida" },
-  { value: "conversation_assigned", label: "Conversation Assigned", hint: "When assigned to an agent" },
-  { value: "tag_added", label: "Tag Added", hint: "When a tag is added to a contact" },
-  { value: "time_based", label: "Time-Based", hint: "On a recurring schedule" },
+  { value: "keyword_match", label: "Palavra-chave encontrada", hint: "A mensagem contém uma ou mais palavras específicas" },
+  { value: "new_contact_created", label: "Novo contato criado", hint: "Quando um contato é criado automaticamente por uma mensagem recebida" },
+  { value: "conversation_assigned", label: "Conversa atribuída", hint: "Quando a conversa é atribuída a um vendedor" },
+  { value: "tag_added", label: "Tag adicionada", hint: "Quando uma tag é adicionada ao contato" },
+  { value: "time_based", label: "Agendamento", hint: "Executar em uma programação recorrente" },
 ]
 
 function cid(): string {
@@ -399,7 +399,7 @@ function SendTemplateFields({
   if (templates.length === 0) {
     return (
       <>
-        <FieldBlock label="Template name">
+        <FieldBlock label="Nome do modelo">
           <Input
             value={templateName}
             onChange={(e) =>
@@ -408,7 +408,7 @@ function SendTemplateFields({
             className="bg-muted text-foreground"
           />
         </FieldBlock>
-        <FieldBlock label="Language">
+        <FieldBlock label="Idioma">
           <Input
             value={language}
             onChange={(e) =>
@@ -430,7 +430,7 @@ function SendTemplateFields({
   )
 
   return (
-    <FieldBlock label="Template">
+    <FieldBlock label="Modelo">
       <select
         value={current}
         onChange={(e) => {
@@ -439,7 +439,7 @@ function SendTemplateFields({
         }}
         className={SELECT_CLASS}
       >
-        <option value="">Select a template…</option>
+        <option value="">Selecione um modelo…</option>
         {templates.map((t) => {
           const lang = t.language ?? "en_US"
           return (
@@ -1113,28 +1113,28 @@ function StepEditor({
     case "create_deal":
       return (
         <>
-          <FieldBlock label="Pipeline id">
+          <FieldBlock label="ID do pipeline">
             <Input
               value={(cfg.pipeline_id as string) ?? ""}
               onChange={(e) => set({ pipeline_id: e.target.value })}
               className="bg-muted text-foreground"
             />
           </FieldBlock>
-          <FieldBlock label="Stage id">
+          <FieldBlock label="ID da etapa">
             <Input
               value={(cfg.stage_id as string) ?? ""}
               onChange={(e) => set({ stage_id: e.target.value })}
               className="bg-muted text-foreground"
             />
           </FieldBlock>
-          <FieldBlock label="Title">
+          <FieldBlock label="Título">
             <Input
               value={(cfg.title as string) ?? ""}
               onChange={(e) => set({ title: e.target.value })}
               className="bg-muted text-foreground"
             />
           </FieldBlock>
-          <FieldBlock label="Value">
+          <FieldBlock label="Valor">
             <Input
               type="number"
               value={(cfg.value as number) ?? 0}

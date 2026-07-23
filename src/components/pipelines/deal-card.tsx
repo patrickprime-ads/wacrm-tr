@@ -1,7 +1,7 @@
 "use client";
 
 import type { Deal, PipelineStage } from "@/types";
-import { Calendar, Check, GripVertical, X } from "lucide-react";
+import { Calendar, Check, GripVertical, Sparkles, X } from "lucide-react";
 import { formatCurrency } from "@/lib/currency";
 
 interface DealCardProps {
@@ -43,6 +43,16 @@ const originLabels: Record<string, string> = {
   whatsapp: "WhatsApp",
   other: "Outros",
 };
+
+function nextAction(deal: Deal) {
+  if (deal.status === "won") return "Confirmar dados e iniciar o pós-venda";
+  if (deal.status === "lost") return "Registrar o motivo da perda";
+  const temperature = deal.contact?.lead_temperature;
+  if (temperature === "quente") return "Entrar em contato agora e tentar fechar";
+  if (temperature === "interessado") return "Enviar proposta e combinar o próximo passo";
+  if (temperature === "frio") return "Fazer uma pergunta curta para requalificar";
+  return "Descobrir interesse e produto ideal";
+}
 
 export function DealCard({ deal, stage, onEdit, isOverlay }: DealCardProps) {
   const savedContactName = deal.contact?.name?.trim();
@@ -125,11 +135,16 @@ export function DealCard({ deal, stage, onEdit, isOverlay }: DealCardProps) {
             {product}
           </span>
         ))}
-        {(deal.selected_products?.length ?? 0) > 2 && (
+      {(deal.selected_products?.length ?? 0) > 2 && (
           <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] text-muted-foreground">
             +{(deal.selected_products?.length ?? 0) - 2}
           </span>
         )}
+      </div>
+
+      <div className="mt-2 flex items-start gap-1.5 rounded-lg bg-primary/5 px-2 py-1.5 text-[10px] leading-relaxed text-muted-foreground">
+        <Sparkles className="mt-0.5 h-3 w-3 shrink-0 text-primary" />
+        <span><strong className="text-primary">Próxima ação:</strong> {nextAction(deal)}</span>
       </div>
 
       <div className="mt-2 flex items-center justify-between">

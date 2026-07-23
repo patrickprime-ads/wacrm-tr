@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/hooks/use-auth';
 import { formatCurrency } from '@/lib/currency';
 import { toast } from 'sonner';
-import type { Contact, Tag, ContactTag, ContactNote, CustomField, ContactCustomValue, Deal } from '@/types';
+import type { Contact, Tag, ContactNote, CustomField, Deal } from '@/types';
 import {
   Sheet,
   SheetContent,
@@ -19,8 +19,6 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Badge } from '@/components/ui/badge';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   Phone,
   Copy,
@@ -29,7 +27,6 @@ import {
   Plus,
   Trash2,
   Save,
-  X,
   DollarSign,
 } from 'lucide-react';
 
@@ -398,6 +395,12 @@ export function ContactDetailView({
                   Campos personalizados
                 </TabsTrigger>
                 <TabsTrigger
+                  value="journey"
+                  className="data-active:bg-muted data-active:text-primary text-muted-foreground"
+                >
+                  Jornada
+                </TabsTrigger>
+                <TabsTrigger
                   value="deals"
                   className="data-active:bg-muted data-active:text-primary text-muted-foreground"
                 >
@@ -593,6 +596,27 @@ export function ContactDetailView({
                 )}
               </TabsContent>
 
+              <TabsContent value="journey" className="flex-1 overflow-y-auto px-4 py-3">
+                <div className="space-y-3">
+                  <JourneyEvent
+                    title="Lead entrou no CRM"
+                    detail={`${contact.lead_source || 'Origem não identificada'}${contact.source_detail ? ` · ${contact.source_detail}` : ''}`}
+                    date={contact.created_at}
+                  />
+                  {deals.map((deal) => (
+                    <JourneyEvent
+                      key={deal.id}
+                      title={deal.status === 'won' ? 'Venda concluída' : deal.status === 'lost' ? 'Venda perdida' : 'Oportunidade criada'}
+                      detail={`${deal.title} · ${formatCurrency(deal.value ?? 0, 'BRL')}`}
+                      date={deal.created_at}
+                    />
+                  ))}
+                  {notes.map((note) => (
+                    <JourneyEvent key={note.id} title="Nota adicionada" detail={note.note_text} date={note.created_at} />
+                  ))}
+                </div>
+              </TabsContent>
+
               {/* Deals Tab */}
               <TabsContent value="deals" className="flex-1 overflow-y-auto px-4 py-3">
                 {loadingDeals ? (
@@ -654,5 +678,18 @@ export function ContactDetailView({
         )}
       </SheetContent>
     </Sheet>
+  );
+}
+
+function JourneyEvent({ title, detail, date }: { title: string; detail: string; date: string }) {
+  return (
+    <div className="relative border-l border-primary/30 pl-4">
+      <span className="absolute -left-1 top-1 h-2 w-2 rounded-full bg-primary" />
+      <strong className="block text-sm">{title}</strong>
+      <p className="text-xs text-muted-foreground">{detail}</p>
+      <time className="mt-1 block text-[10px] text-muted-foreground">
+        {new Date(date).toLocaleString('pt-BR')}
+      </time>
+    </div>
   );
 }

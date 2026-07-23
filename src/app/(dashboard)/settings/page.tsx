@@ -13,6 +13,8 @@ import { AppearancePanel } from '@/components/settings/appearance-panel';
 import { WhatsAppSettingsHub } from '@/components/settings/whatsapp-settings-hub';
 import IntegrationsPage from '@/app/(dashboard)/integrations/page';
 import BroadcastsPage from '@/app/(dashboard)/broadcasts/page';
+import FlowsPage from '@/app/(dashboard)/flows/page';
+import { ProductsSettings } from '@/components/settings/products-settings';
 import { TemplateManager } from '@/components/settings/template-manager';
 import { FieldsAndTagsPanel } from '@/components/settings/fields-and-tags-panel';
 import { DealsSettings } from '@/components/settings/deals-settings';
@@ -59,6 +61,8 @@ export default function SettingsPage() {
     whatsapp: <WhatsAppSettingsHub />,
     integrations: <IntegrationsPage />,
     broadcasts: <BroadcastsPage />,
+    products: <ProductsSettings />,
+    flows: <FlowsPage />,
     templates: <TemplateManager />,
     fields: <FieldsAndTagsPanel />,
     deals: <DealsSettings />,

@@ -135,8 +135,8 @@ export default function DailySummaryPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold">Resumo do Dia</h1>
-        <p className="text-sm text-muted-foreground">Gere uma mensagem pronta para enviar pelo WhatsApp.</p>
+        <h1 className="text-2xl font-bold">Relatórios</h1>
+        <p className="text-sm text-muted-foreground">Gere o resumo de vendas do período e envie pelo WhatsApp.</p>
       </div>
       <div className="grid gap-4 rounded-2xl border bg-card p-5 lg:grid-cols-[260px_1fr]">
         <aside className="space-y-3 rounded-xl border bg-background/40 p-4">

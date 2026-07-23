@@ -267,6 +267,9 @@ export async function POST(request: Request) {
               'MESSAGES_SET',
               'MESSAGES_UPSERT',
               'MESSAGES_UPDATE',
+              'CONTACTS_SET',
+              'CONTACTS_UPSERT',
+              'CONTACTS_UPDATE',
               'CONNECTION_UPDATE',
             ],
           },
@@ -294,6 +297,9 @@ export async function POST(request: Request) {
               'MESSAGES_SET',
               'MESSAGES_UPSERT',
               'MESSAGES_UPDATE',
+              'CONTACTS_SET',
+              'CONTACTS_UPSERT',
+              'CONTACTS_UPDATE',
               'CONNECTION_UPDATE',
             ],
           },
@@ -352,7 +358,9 @@ export async function POST(request: Request) {
           id?: string;
           number?: string;
           pushName?: string;
+          name?: string;
           profilePictureUrl?: string | null;
+          profilePicUrl?: string | null;
         }>;
         for (const evolutionContact of evolutionContacts) {
           const phone = String(evolutionContact.number || '')
@@ -361,20 +369,47 @@ export async function POST(request: Request) {
           const internalId = String(evolutionContact.id || '')
             .split('@')[0]
             .replace(/\D/g, '');
-          const name = evolutionContact.pushName?.trim();
-          if (
-            (!phone && !internalId) ||
-            !name ||
-            name.toLowerCase() === 'você' ||
-            name.toLowerCase() === 'you'
-          )
-            continue;
+          const name = (
+            evolutionContact.pushName || evolutionContact.name
+          )?.trim();
+          if (!phone && !internalId) continue;
+          const validName =
+            name &&
+            name.toLowerCase() !== 'você' &&
+            name.toLowerCase() !== 'you'
+              ? name
+              : null;
           const identifiers = [...new Set([phone, internalId].filter(Boolean))];
           const { data: matches } = await supabase
             .from('contacts')
-            .select('id, phone_normalized')
+            .select('id, phone_normalized, avatar_url')
             .eq('account_id', accountId)
             .in('phone_normalized', identifiers);
+          let avatarUrl =
+            evolutionContact.profilePictureUrl ||
+            evolutionContact.profilePicUrl ||
+            null;
+          if (!avatarUrl && phone && matches?.length) {
+            try {
+              const pictureResult = await evolution(
+                config as ConfigRow,
+                `/chat/fetchProfilePictureUrl/${instance}`,
+                {
+                  method: 'POST',
+                  body: JSON.stringify({ number: phone }),
+                },
+              );
+              avatarUrl = String(
+                pictureResult.profilePictureUrl ||
+                  pictureResult.profilePicUrl ||
+                  pictureResult.url ||
+                  '',
+              ) || null;
+            } catch {
+              // Some contacts hide their photo or the Evolution version
+              // may not expose this endpoint. The name/phone sync continues.
+            }
+          }
           const realPhoneAlreadyExists = Boolean(
             phone &&
             matches?.some((contact) => contact.phone_normalized === phone)
@@ -389,8 +424,8 @@ export async function POST(request: Request) {
             const { error: updateError } = await supabase
               .from('contacts')
               .update({
-                name,
-                avatar_url: evolutionContact.profilePictureUrl || undefined,
+                ...(validName ? { name: validName } : {}),
+                ...(avatarUrl ? { avatar_url: avatarUrl } : {}),
                 ...(replaceInternalId
                   ? { phone, phone_normalized: phone }
                   : {}),
