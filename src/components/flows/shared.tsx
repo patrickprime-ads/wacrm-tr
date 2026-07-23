@@ -69,48 +69,48 @@ export const NODE_META: Record<
   NodeType,
   { label: string; icon: typeof Workflow; color: string }
 > = {
-  start: { label: "Start", icon: PlayCircle, color: "text-emerald-400" },
+  start: { label: "Início", icon: PlayCircle, color: "text-emerald-400" },
   send_message: {
-    label: "Send message",
+    label: "Enviar mensagem",
     icon: MessageCircle,
     color: "text-sky-400",
   },
   send_buttons: {
-    label: "Send buttons",
+    label: "Enviar botões",
     icon: ListChecks,
     color: "text-primary",
   },
   send_list: {
-    label: "Send list",
+    label: "Enviar lista",
     icon: ListPlus,
     color: "text-indigo-400",
   },
   send_media: {
-    label: "Send media",
+    label: "Enviar mídia",
     icon: Paperclip,
     color: "text-cyan-400",
   },
   collect_input: {
-    label: "Collect input",
+    label: "Coletar resposta",
     icon: Inbox,
     color: "text-teal-400",
   },
   condition: {
-    label: "If / else",
+    label: "Condição",
     icon: GitFork,
     color: "text-fuchsia-400",
   },
   set_tag: {
-    label: "Tag contact",
+    label: "Marcar contato",
     icon: Tag,
     color: "text-pink-400",
   },
   handoff: {
-    label: "Handoff to agent",
+    label: "Transferir para atendente",
     icon: UserPlus,
     color: "text-amber-400",
   },
-  end: { label: "End", icon: Flag, color: "text-muted-foreground" },
+  end: { label: "Encerrar", icon: Flag, color: "text-muted-foreground" },
 };
 
 // ============================================================

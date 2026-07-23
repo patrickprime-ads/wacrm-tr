@@ -291,7 +291,7 @@ export function ContactSidebar({ contact, conversationId }: ContactSidebarProps)
                     </p>
                     <div className="mt-1 flex items-center justify-between text-xs text-muted-foreground">
                       <span>
-                        {deal.currency ?? "$"}
+                        {deal.currency === "BRL" || !deal.currency ? "R$" : deal.currency}
                         {deal.value.toLocaleString()}
                       </span>
                       {deal.stage && (

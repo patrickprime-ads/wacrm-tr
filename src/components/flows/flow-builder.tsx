@@ -245,7 +245,7 @@ function KeywordsInput({
           commit();
         }
       }}
-      placeholder="support, help, hi"
+      placeholder="suporte, ajuda, olá"
       className="bg-muted"
     />
   );
@@ -528,7 +528,7 @@ function NodeConfigWithAdvanced({
           <div className="mt-3 flex flex-col gap-3">
             <div>
               <label className="mb-1 block text-xs text-muted-foreground">
-                Node key (internal identifier — keep stable for analytics)
+                Chave do bloco (identificador interno — não altere após publicar)
               </label>
               <Input
                 value={node.node_key}
@@ -540,7 +540,7 @@ function NodeConfigWithAdvanced({
             </div>
             {hasReplyIds && (
               <p className="text-[10px] text-muted-foreground">
-                Reply IDs for each option are shown inline above. They&apos;re
+                Os IDs de resposta de cada opção aparecem acima. Eles
                 returned by WhatsApp when a customer taps; you usually don&apos;t
                 need to touch them.
               </p>
@@ -593,4 +593,3 @@ function AddNodeButton({ onAdd }: { onAdd: (type: NodeType) => void }) {
     </DropdownMenu>
   );
 }
-
