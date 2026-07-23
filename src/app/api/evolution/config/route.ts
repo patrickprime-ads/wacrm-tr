@@ -64,8 +64,14 @@ export async function GET() {
     try {
       const stateData = await evolution(config as ConfigRow, `/instance/connectionState/${encodeURIComponent(config.instance_name)}`);
       const state = ((stateData.instance as Record<string, unknown> | undefined)?.state ?? stateData.state ?? "disconnected") as string;
+      let webhookConfigured = false;
+      try {
+        const hook = await evolution(config as ConfigRow, `/webhook/find/${encodeURIComponent(config.instance_name)}`);
+        const webhook = (hook.webhook ?? hook) as Record<string, unknown>;
+        webhookConfigured = webhook.enabled === true && String(webhook.url || "").includes("/api/evolution/webhook");
+      } catch { /* versões antigas podem não oferecer o endpoint de consulta */ }
       await supabase.from("evolution_config").update({ status: state }).eq("account_id", accountId);
-      return NextResponse.json({ configured: true, server_url: config.server_url, instance_name: config.instance_name, state });
+      return NextResponse.json({ configured: true, server_url: config.server_url, instance_name: config.instance_name, state, webhook_configured: webhookConfigured });
     } catch (error) {
       return NextResponse.json({ configured: true, server_url: config.server_url, instance_name: config.instance_name, state: "disconnected", warning: error instanceof Error ? error.message : "Falha ao consultar a Evolution" });
     }
@@ -108,7 +114,14 @@ export async function POST(request: Request) {
     };
 
     if (body.action === "sync") {
-      await configureWebhook();
+      // Rotate on every manual sync so a URL exposed in logs/screenshots
+      // immediately becomes invalid.
+      const freshSecret = randomBytes(32).toString("hex");
+      await supabase.from("evolution_config").update({ webhook_secret_encrypted: encrypt(freshSecret) }).eq("account_id", accountId);
+      await evolution(config as ConfigRow, `/webhook/set/${instance}`, {
+        method: "POST",
+        body: JSON.stringify({ webhook: { enabled: true, url: `${origin}/api/evolution/webhook?token=${encodeURIComponent(freshSecret)}`, webhookByEvents: false, webhookBase64: false, events: ["MESSAGES_UPSERT", "MESSAGES_UPDATE", "CONNECTION_UPDATE"] } }),
+      });
       return NextResponse.json({ ok: true });
     }
 

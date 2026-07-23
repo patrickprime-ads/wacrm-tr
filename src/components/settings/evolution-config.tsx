@@ -9,7 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
-type EvolutionStatus = { configured: boolean; server_url?: string; instance_name?: string; state: string; warning?: string; error?: string };
+type EvolutionStatus = { configured: boolean; server_url?: string; instance_name?: string; state: string; webhook_configured?: boolean; warning?: string; error?: string };
 
 export function EvolutionConfig() {
   const [serverUrl, setServerUrl] = useState("");
@@ -17,6 +17,7 @@ export function EvolutionConfig() {
   const [instanceName, setInstanceName] = useState("wacrm");
   const [configured, setConfigured] = useState(false);
   const [state, setState] = useState("disconnected");
+  const [webhookConfigured, setWebhookConfigured] = useState(false);
   const [qr, setQr] = useState<string | null>(null);
   const [pairingCode, setPairingCode] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
@@ -28,6 +29,7 @@ export function EvolutionConfig() {
       if (!response.ok) throw new Error(data.error || "Falha ao consultar a Evolution");
       setConfigured(data.configured);
       setState(data.state || "disconnected");
+      setWebhookConfigured(data.webhook_configured === true);
       if (data.server_url) setServerUrl(data.server_url);
       if (data.instance_name) setInstanceName(data.instance_name);
       if (data.state === "open") { setQr(null); setPairingCode(null); }
@@ -59,7 +61,7 @@ export function EvolutionConfig() {
         if (!data.base64 && !data.code) toast.info("Instância criada. Clique em atualizar QR se ele não aparecer.");
       }
       if (actionName === "logout") { setState("disconnected"); setQr(null); toast.success("WhatsApp desconectado"); }
-      if (actionName === "sync") toast.success("Caixa de Entrada sincronizada com a Evolution");
+      if (actionName === "sync") { setWebhookConfigured(true); toast.success("Caixa de Entrada sincronizada com a Evolution"); }
       await loadStatus(true);
     } catch (error) { toast.error(error instanceof Error ? error.message : "Falha na Evolution API"); }
     finally { setBusy(null); }
@@ -90,6 +92,7 @@ export function EvolutionConfig() {
         {(qr || pairingCode) && !connected && <div className="rounded-2xl border border-emerald-500/30 bg-background p-5 text-center"><p className="mb-4 text-sm font-medium">No celular: WhatsApp Business → Aparelhos conectados → Conectar aparelho</p>{qr && <Image src={qr} alt="QR Code para conectar o WhatsApp Business" width={280} height={280} unoptimized className="mx-auto rounded-xl bg-white p-3" />}{pairingCode && <div className="mt-3"><p className="text-xs text-muted-foreground">Código de pareamento</p><code className="text-xl font-bold tracking-widest">{pairingCode}</code></div>}<p className="mt-4 text-xs text-muted-foreground">O status é atualizado automaticamente a cada 5 segundos.</p></div>}
         {!configured && <div className="flex gap-2 rounded-xl border border-amber-500/20 bg-amber-500/5 p-3 text-xs text-muted-foreground"><Server className="h-4 w-4 shrink-0 text-amber-400" /> Informe a URL HTTPS, a chave e um nome de instância. Salve antes de gerar o QR.</div>}
         {connected && <div className="flex items-center gap-2 rounded-xl border border-emerald-500/25 bg-emerald-500/10 p-3 text-sm text-emerald-300"><CheckCircle2 className="h-4 w-4" /> WhatsApp Business conectado à instância {instanceName}.</div>}
+        {connected && <div className={`rounded-xl border p-3 text-sm ${webhookConfigured ? "border-emerald-500/25 bg-emerald-500/10 text-emerald-300" : "border-amber-500/25 bg-amber-500/10 text-amber-300"}`}>{webhookConfigured ? "Webhook da Caixa de Entrada ativo" : "Webhook não confirmado. Clique em Sincronizar Caixa de Entrada."}</div>}
       </CardContent>
     </Card>
   );

@@ -14,7 +14,6 @@ import {
   LayoutDashboard,
   LogOut,
   MessageSquare,
-  MessageCircle,
   Radio,
   Settings,
   Shield,
@@ -24,7 +23,6 @@ import {
   Users,
   UsersRound,
   Workflow,
-  Webhook,
   X,
   Zap,
 } from "lucide-react";
@@ -112,11 +110,9 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
   { href: "/pipelines", label: t('pipelines'), icon: GitBranch },
   { href: "/lead-tracking", label: "Tracking de Leads", icon: Target },
   { href: "/ai-agents", label: "Agentes IA", icon: Bot },
-  { href: "/whatsapp-business", label: "WhatsApp Business", icon: MessageCircle },
   { href: "/broadcasts", label: "Disparos", icon: Radio },
   { href: "/automations", label: t('automations'), icon: Zap },
   { href: "/flows", label: t('flows'), icon: Workflow, beta: true },
-  { href: "/integrations", label: "Integrações", icon: Webhook },
 ];
 
 const bottomNavItems = [
