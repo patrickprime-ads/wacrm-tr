@@ -115,7 +115,7 @@ export function Step4ScheduleSend({
         <p className="text-sm font-medium text-foreground">Resumo</p>
         <div className="grid grid-cols-2 gap-3 text-sm">
           <div>
-            <p className="text-xs text-muted-foreground">Template</p>
+            <p className="text-xs text-muted-foreground">Modelo</p>
             <p className="text-foreground">{template.name}</p>
           </div>
           <div>

@@ -287,8 +287,8 @@ export function Step3Personalize({
                               loadingFields
                                 ? 'Loading…'
                                 : customFields.length === 0
-                                  ? 'No custom fields'
-                                  : 'Select custom field…'
+                                  ? 'Nenhum campo personalizado'
+                                  : 'Selecione um campo personalizado…'
                             }
                           />
                         </SelectTrigger>

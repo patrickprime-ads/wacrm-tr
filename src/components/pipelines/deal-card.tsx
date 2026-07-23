@@ -1,7 +1,7 @@
 "use client";
 
 import type { Deal, PipelineStage } from "@/types";
-import { Building2, Calendar, Check, GripVertical, X } from "lucide-react";
+import { Calendar, Check, GripVertical, X } from "lucide-react";
 import { formatCurrency } from "@/lib/currency";
 
 interface DealCardProps {
@@ -25,7 +25,12 @@ function initials(name?: string, fallback?: string) {
 }
 
 export function DealCard({ deal, stage, onEdit, isOverlay }: DealCardProps) {
-  const contactLabel = deal.contact?.name || deal.contact?.phone || "Sem contato";
+  const savedContactName = deal.contact?.name?.trim();
+  const contactLabel =
+    savedContactName &&
+    !["você", "you"].includes(savedContactName.toLowerCase())
+      ? savedContactName
+      : deal.contact?.phone || "Sem contato";
   const assigneeLabel = deal.assignee?.full_name || null;
 
   return (
@@ -71,13 +76,6 @@ export function DealCard({ deal, stage, onEdit, isOverlay }: DealCardProps) {
           </span>
         )}
       </div>
-
-      {deal.contact?.company && (
-        <div className="mt-2 flex items-center gap-1.5 text-[11px] text-muted-foreground">
-          <Building2 className="h-3 w-3" />
-          <span className="truncate">{deal.contact.company}</span>
-        </div>
-      )}
 
       {/* Contact row */}
       <div className="mt-2 flex items-center gap-2">

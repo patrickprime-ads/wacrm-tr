@@ -172,7 +172,7 @@ export default function AutomationsPage() {
           className="bg-primary text-primary-foreground hover:bg-primary/90"
         >
           <Plus className="h-4 w-4" />
-          Criar automaÃ§Ã£o
+          Criar automação
         </GatedButton>
       </div>
 
@@ -206,7 +206,7 @@ export default function AutomationsPage() {
           <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10">
             <Zap className="h-6 w-6 text-primary" />
           </div>
-          <p className="mt-3 text-sm font-medium text-foreground">Nenhuma automaÃ§Ã£o ainda</p>
+          <p className="mt-3 text-sm font-medium text-foreground">Nenhuma automação ainda</p>
           <p className="mt-1 text-xs text-muted-foreground">
             Escolha um template acima ou crie uma do zero.
           </p>
@@ -230,10 +230,10 @@ export default function AutomationsPage() {
       <Dialog open={!!pendingDelete} onOpenChange={(v) => !v && setPendingDelete(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Excluir automaÃ§Ã£o</DialogTitle>
+            <DialogTitle>Excluir automação</DialogTitle>
             <DialogDescription>
               Isso remove permanentemente{" "}
-              <span className="text-foreground">{pendingDelete?.name}</span> e seu histÃ³rico de execuÃ§Ã£o. Esta aÃ§Ã£o nÃ£o pode ser desfeita.
+              <span className="text-foreground">{pendingDelete?.name}</span> e seu histórico de execução. Esta ação não pode ser desfeita.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -314,10 +314,10 @@ function AutomationCard({
               {meta.label}
             </span>
             <span className="tabular-nums">
-              {automation.execution_count} execuÃ§Ã£o{automation.execution_count === 1 ? "" : "s"}
+              {automation.execution_count} execução{automation.execution_count === 1 ? "" : "s"}
             </span>
-            <span aria-hidden>Â·</span>
-            <span>Ãšltima {formatRelative(automation.last_executed_at)}</span>
+            <span aria-hidden>·</span>
+            <span>Última {formatRelative(automation.last_executed_at)}</span>
           </div>
         </button>
 

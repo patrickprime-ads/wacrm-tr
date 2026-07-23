@@ -218,7 +218,7 @@ export default function BroadcastsPage() {
             <TableHeader>
               <TableRow className="border-border hover:bg-transparent">
                 <TableHead className="text-muted-foreground">Nome</TableHead>
-                <TableHead className="hidden text-muted-foreground md:table-cell">Template</TableHead>
+                <TableHead className="hidden text-muted-foreground md:table-cell">Modelo</TableHead>
                 <TableHead className="hidden text-right text-muted-foreground sm:table-cell">
                   Destinatários
                 </TableHead>

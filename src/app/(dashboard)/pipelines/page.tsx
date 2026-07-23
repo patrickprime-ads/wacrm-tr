@@ -334,7 +334,6 @@ export default function PipelinesPage() {
         deal.title,
         deal.contact?.name,
         deal.contact?.phone,
-        deal.contact?.company,
         deal.assignee?.full_name,
       ].some((value) => value?.toLocaleLowerCase('pt-BR').includes(query))
     );
@@ -448,7 +447,7 @@ export default function PipelinesPage() {
             className="bg-primary text-primary-foreground hover:bg-primary/90"
           >
             <Plus className="mr-1 h-4 w-4" />
-            Adicionar negócio
+            Nova Venda
           </GatedButton>
         </div>
       </div>

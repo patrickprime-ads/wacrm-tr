@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/hooks/use-auth';
-import { CURRENCIES } from '@/lib/currency';
 import { displayStageName } from '@/lib/pipelines/display';
 import type {
   Contact,
@@ -45,15 +44,32 @@ interface DealFormProps {
   onSaved: () => void;
 }
 
-const QUICK_PRODUCTS = [
-  { name: 'Cartão Essence', price: 59.9, group: 'Cartões' },
-  { name: 'Cartão Smart', price: 69.9, group: 'Cartões' },
-  { name: 'Cartão Premium', price: 89.9, group: 'Cartões' },
-  { name: 'Cartão Gold', price: 119.9, group: 'Cartões' },
+interface QuickProduct {
+  name: string;
+  price: number | null;
+  group: string;
+  detail?: string;
+}
+
+const QUICK_PRODUCTS: QuickProduct[] = [
+  { name: 'Cartão Essence', price: 59.9, group: 'Cartões principais', detail: 'Até 5 pessoas' },
+  { name: 'Cartão Smart', price: 69.9, group: 'Cartões principais' },
+  { name: 'Cartão Premium', price: 89.9, group: 'Cartões principais' },
+  { name: 'Cartão Gold', price: 119.9, group: 'Cartões principais' },
+  { name: 'Cartão Empresarial PJ', price: null, group: 'Cartões principais', detail: 'Valor personalizado' },
   { name: 'Premium DIH 300', price: 149.9, group: 'Premium com DIH' },
   { name: 'Premium DIH 500', price: 189.9, group: 'Premium com DIH' },
   { name: 'Premium DIH 1000', price: 269.9, group: 'Premium com DIH' },
-] as const;
+  { name: 'Seguro Funeral Ampliado', price: 99.9, group: 'Adicionais / UP' },
+  { name: 'Seguro Despesas Médicas', price: 19.9, group: 'Adicionais / UP' },
+  { name: 'UP Internação 300', price: null, group: 'Adicionais / UP', detail: 'Valor personalizado' },
+  { name: 'UP Internação 500', price: null, group: 'Adicionais / UP', detail: 'Valor personalizado' },
+  { name: 'UP Internação 1000', price: null, group: 'Adicionais / UP', detail: 'Valor personalizado' },
+  { name: 'Odontologia', price: null, group: 'Serviços avulsos', detail: 'Preencher valor' },
+  { name: 'Exames', price: null, group: 'Serviços avulsos', detail: 'Laboratório / imagem' },
+  { name: 'Consulta', price: null, group: 'Serviços avulsos', detail: 'Especialidades médicas' },
+  { name: 'Outros', price: null, group: 'Serviços avulsos', detail: 'Serviço personalizado' },
+];
 
 export function DealForm({
   open,
@@ -66,11 +82,10 @@ export function DealForm({
   onSaved,
 }: DealFormProps) {
   const supabase = createClient();
-  const { accountId, defaultCurrency } = useAuth();
+  const { accountId } = useAuth();
 
   const [title, setTitle] = useState('');
   const [value, setValue] = useState('');
-  const [currency, setCurrency] = useState(defaultCurrency);
   const [contactId, setContactId] = useState('');
   const [newContactMode, setNewContactMode] = useState(false);
   const [newContactName, setNewContactName] = useState('');
@@ -102,7 +117,6 @@ export function DealForm({
     if (deal) {
       setTitle(deal.title);
       setValue(String(deal.value ?? ''));
-      setCurrency(deal.currency || defaultCurrency);
       // contact_id is nullable when the contact has been deleted
       // (migration 004: ON DELETE SET NULL). "" means "no selection".
       setContactId(deal.contact_id ?? '');
@@ -115,7 +129,6 @@ export function DealForm({
     } else {
       setTitle('');
       setValue('');
-      setCurrency(defaultCurrency);
       setContactId(defaultContactId || '');
       setStageId(defaultStageId || stages[0]?.id || '');
       setAssignedTo('');
@@ -127,7 +140,7 @@ export function DealForm({
       setNewContactPhone('');
       setNewContactSource('presencial');
     }
-  }, [open, deal, defaultStageId, defaultContactId, stages, defaultCurrency]);
+  }, [open, deal, defaultStageId, defaultContactId, stages]);
   /* eslint-enable react-hooks/set-state-in-effect */
 
   // Load supporting data once the sheet is open
@@ -215,7 +228,7 @@ export function DealForm({
     const payload = {
       title: title.trim(),
       value: parseFloat(value) || 0,
-      currency,
+      currency: 'BRL',
       contact_id: resolvedContactId,
       pipeline_id: pipelineId,
       stage_id: stageId,
@@ -268,10 +281,10 @@ export function DealForm({
     onSaved();
   }
 
-  function chooseProduct(product: (typeof QUICK_PRODUCTS)[number]) {
+  function chooseProduct(product: QuickProduct) {
     setSelectedProduct(product.name);
     setTitle(`Venda ${product.name}`);
-    setValue(String(product.price));
+    setValue(product.price === null ? '' : String(product.price));
   }
 
   async function handleStatusChange(status: DealStatus) {
@@ -415,60 +428,61 @@ export function DealForm({
                     O título e o valor são preenchidos automaticamente.
                   </p>
                 </div>
-                <div className="grid grid-cols-2 gap-2">
-                  {QUICK_PRODUCTS.map((product) => (
-                    <button
-                      key={product.name}
-                      type="button"
-                      onClick={() => chooseProduct(product)}
-                      className={`rounded-xl border p-3 text-left transition-colors ${
-                        selectedProduct === product.name
-                          ? 'border-primary bg-primary/10'
-                          : 'border-border bg-muted/40 hover:border-primary/50'
-                      }`}
-                    >
-                      <span className="text-muted-foreground block text-xs">
-                        {product.group}
-                      </span>
-                      <strong className="mt-1 block text-sm">
-                        {product.name}
-                      </strong>
-                      <span className="text-primary mt-1 block text-xs">
-                        R$ {product.price.toFixed(2).replace('.', ',')}/mês
-                      </span>
-                    </button>
-                  ))}
+                <div className="space-y-4">
+                  {[...new Set(QUICK_PRODUCTS.map((product) => product.group))].map(
+                    (group) => (
+                      <section key={group}>
+                        <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                          {group}
+                        </h3>
+                        <div className="grid grid-cols-2 gap-2">
+                          {QUICK_PRODUCTS.filter(
+                            (product) => product.group === group,
+                          ).map((product) => (
+                            <button
+                              key={product.name}
+                              type="button"
+                              onClick={() => chooseProduct(product)}
+                              className={`rounded-xl border p-3 text-left transition-colors ${
+                                selectedProduct === product.name
+                                  ? 'border-primary bg-primary/10'
+                                  : 'border-border bg-muted/40 hover:border-primary/50'
+                              }`}
+                            >
+                              <strong className="block text-sm">
+                                {product.name}
+                              </strong>
+                              {product.detail && (
+                                <span className="mt-0.5 block text-[11px] text-muted-foreground">
+                                  {product.detail}
+                                </span>
+                              )}
+                              <span className="mt-1 block text-xs text-primary">
+                                {product.price === null
+                                  ? 'Informar valor'
+                                  : `R$ ${product.price.toFixed(2).replace('.', ',')}/mês`}
+                              </span>
+                            </button>
+                          ))}
+                        </div>
+                      </section>
+                    ),
+                  )}
                 </div>
               </div>
             )}
 
-            <div className="grid grid-cols-[1fr_110px] gap-3">
-              <div className="grid gap-2">
-                <Label className="text-muted-foreground">Valor</Label>
-                <div className="relative">
-                  <DollarSign className="text-muted-foreground absolute top-1/2 left-2 h-3.5 w-3.5 -translate-y-1/2" />
-                  <Input
-                    type="number"
-                    value={value}
-                    onChange={(e) => setValue(e.target.value)}
-                    placeholder="0"
-                    className="border-border bg-muted text-foreground pl-7"
-                  />
-                </div>
-              </div>
-              <div className="grid gap-2">
-                <Label className="text-muted-foreground">Moeda</Label>
-                <select
-                  value={currency}
-                  onChange={(e) => setCurrency(e.target.value)}
-                  className="border-border bg-muted text-foreground focus:border-primary h-9 w-full rounded-lg border px-2.5 text-sm outline-none"
-                >
-                  {CURRENCIES.map((c) => (
-                    <option key={c.code} value={c.code}>
-                      {c.code}
-                    </option>
-                  ))}
-                </select>
+            <div className="grid gap-2">
+              <Label className="text-muted-foreground">Valor da venda (R$)</Label>
+              <div className="relative">
+                <DollarSign className="text-muted-foreground absolute top-1/2 left-2 h-3.5 w-3.5 -translate-y-1/2" />
+                <Input
+                  type="number"
+                  value={value}
+                  onChange={(e) => setValue(e.target.value)}
+                  placeholder="0,00"
+                  className="border-border bg-muted text-foreground pl-7"
+                />
               </div>
             </div>
 
@@ -542,7 +556,7 @@ export function DealForm({
                     ) : (
                       <>
                         <Check className="mr-1 h-4 w-4" />
-                        Mark as Won
+                        Marcar como ganha
                       </>
                     )}
                   </Button>
@@ -557,7 +571,7 @@ export function DealForm({
                     ) : (
                       <>
                         <X className="mr-1 h-4 w-4" />
-                        Mark as Lost
+                        Marcar como perdida
                       </>
                     )}
                   </Button>
@@ -570,7 +584,7 @@ export function DealForm({
                     disabled={!!statusAction}
                     className="text-muted-foreground hover:text-foreground w-full"
                   >
-                    Reopen deal
+                    Reabrir venda
                   </Button>
                 )}
               </div>
@@ -588,14 +602,19 @@ export function DealForm({
               </Button>
               <Button
                 onClick={handleSave}
-                disabled={saving || !title.trim() || !contactId || !stageId}
+                disabled={
+                  saving ||
+                  !title.trim() ||
+                  (!contactId && !newContactMode) ||
+                  !stageId
+                }
                 className="bg-primary text-primary-foreground hover:bg-primary/90 flex-1"
               >
                 {saving
                   ? 'Salvando...'
                   : deal
                     ? 'Salvar alterações'
-                    : 'Criar negócio'}
+                    : 'Criar venda'}
               </Button>
             </div>
 

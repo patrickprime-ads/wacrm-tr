@@ -226,12 +226,12 @@ export function ContactForm({
       <DialogContent className="bg-popover border-border text-popover-foreground sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="text-popover-foreground">
-            {isEdit ? 'Edit Contact' : 'Adicionar contato'}
+            {isEdit ? 'Editar contato' : 'Adicionar contato'}
           </DialogTitle>
           <DialogDescription className="text-muted-foreground">
             {isEdit
-              ? 'Update the contact details below.'
-              : 'Fill in the details to create a new contact.'}
+              ? 'Atualize os dados do contato.'
+              : 'Preencha os dados para criar um contato.'}
           </DialogDescription>
         </DialogHeader>
 
@@ -244,7 +244,7 @@ export function ContactForm({
               id="cf-name"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="John Doe"
+              placeholder="Nome do cliente"
               className="bg-muted border-border text-foreground placeholder:text-muted-foreground"
             />
           </div>
@@ -261,7 +261,7 @@ export function ContactForm({
                 if (dupMatch) setDupMatch(null);
               }}
               onBlur={checkDuplicate}
-              placeholder="+1 234 567 8900"
+              placeholder="(49) 99999-9999"
               className="bg-muted border-border text-foreground placeholder:text-muted-foreground"
             />
             {dupMatch ? (
@@ -276,8 +276,8 @@ export function ContactForm({
                 <div className="space-y-1">
                   <p>
                     {dupMatch.exact
-                      ? 'A contact with this phone number already exists.'
-                      : 'A contact with a very similar number already exists.'}
+                      ? 'Já existe um contato com este telefone.'
+                      : 'Já existe um contato com um número muito parecido.'}
                   </p>
                   {onViewExisting && (
                     <button

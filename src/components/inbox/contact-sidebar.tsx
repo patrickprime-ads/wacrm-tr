@@ -7,7 +7,6 @@ import { cn } from "@/lib/utils";
 import type { Contact, Deal, ContactNote, Tag } from "@/types";
 import {
   Phone,
-  Mail,
   Copy,
   Check,
   Tag as TagIcon,
@@ -191,9 +190,6 @@ export function ContactSidebar({ contact, conversationId }: ContactSidebarProps)
             <h3 className="mt-3 text-sm font-semibold text-foreground">
               {displayName}
             </h3>
-            {contact.company && (
-              <p className="text-xs text-muted-foreground">{contact.company}</p>
-            )}
           </div>
 
           {/* Phone */}
@@ -211,12 +207,6 @@ export function ContactSidebar({ contact, conversationId }: ContactSidebarProps)
               )}
             </button>
 
-            {contact.email && (
-              <div className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-muted-foreground">
-                <Mail className="h-4 w-4 text-muted-foreground" />
-                <span className="truncate">{contact.email}</span>
-              </div>
-            )}
           </div>
 
           {/* Divider */}

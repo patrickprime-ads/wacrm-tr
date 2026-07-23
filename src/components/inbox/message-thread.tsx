@@ -880,7 +880,7 @@ export function MessageThread({
   const authorLabelFor = useCallback(
     (m: Message): string => {
       const isAgentMsg = m.sender_type === 'agent' || m.sender_type === 'bot';
-      return isAgentMsg ? 'You' : contactDisplayName;
+      return isAgentMsg ? 'Você' : contactDisplayName;
     },
     [contactDisplayName]
   );

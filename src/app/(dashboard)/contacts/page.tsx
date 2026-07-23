@@ -113,7 +113,7 @@ export default function ContactsPage() {
 
     if (search.trim()) {
       const term = `%${search.trim()}%`;
-      query = query.or(`name.ilike.${term},phone.ilike.${term},email.ilike.${term}`);
+      query = query.or(`name.ilike.${term},phone.ilike.${term}`);
     }
 
     const { data, count, error } = await query;
@@ -423,7 +423,14 @@ export default function ContactsPage() {
                     />
                   </TableCell>
                   <TableCell className="text-foreground font-medium">
-                    {contact.name || <span className="text-muted-foreground italic">Sem nome</span>}
+                    {contact.name &&
+                    !['você', 'you'].includes(contact.name.trim().toLowerCase())
+                      ? contact.name
+                      : contact.phone || (
+                          <span className="text-muted-foreground italic">
+                            Sem nome
+                          </span>
+                        )}
                   </TableCell>
                   <TableCell className="text-muted-foreground font-mono text-xs">
                     {contact.phone}

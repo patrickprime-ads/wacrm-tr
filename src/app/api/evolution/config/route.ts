@@ -304,6 +304,31 @@ export async function POST(request: Request) {
       let contactsUpdated = 0;
       let importWarning: string | null = null;
       try {
+        try {
+          const currentSettings = await evolution(
+            config as ConfigRow,
+            `/settings/find/${instance}`,
+          );
+          const settings = (currentSettings.settings ??
+            currentSettings) as Record<string, unknown>;
+          await evolution(config as ConfigRow, `/settings/set/${instance}`, {
+            method: 'POST',
+            body: JSON.stringify({
+              rejectCall: Boolean(settings.rejectCall),
+              msgCall: String(settings.msgCall ?? ''),
+              groupsIgnore: Boolean(settings.groupsIgnore),
+              alwaysOnline: Boolean(settings.alwaysOnline),
+              readMessages: Boolean(settings.readMessages),
+              readStatus: Boolean(settings.readStatus),
+              syncFullHistory: true,
+              wavoipToken: String(settings.wavoipToken ?? ''),
+            }),
+          });
+        } catch {
+          // Older Evolution releases may not expose the settings endpoint.
+          // History/contact import below must still continue in that case.
+        }
+
         const contactResult = await evolution(
           config as ConfigRow,
           `/chat/findContacts/${instance}`,

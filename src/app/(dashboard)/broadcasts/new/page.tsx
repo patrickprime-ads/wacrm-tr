@@ -14,10 +14,10 @@ import { useBroadcastSending } from '@/hooks/use-broadcast-sending';
 import { Check } from 'lucide-react';
 
 const steps = [
-  { label: 'Template', key: 'template' },
-  { label: 'Audience', key: 'audience' },
-  { label: 'Personalize', key: 'personalize' },
-  { label: 'Send', key: 'send' },
+  { label: 'Modelo', key: 'template' },
+  { label: 'Público', key: 'audience' },
+  { label: 'Personalizar', key: 'personalize' },
+  { label: 'Enviar', key: 'send' },
 ] as const;
 
 export default function NewBroadcastPage() {
