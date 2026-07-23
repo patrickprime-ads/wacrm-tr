@@ -4,8 +4,9 @@ import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 import type { Conversation, ConversationStatus } from "@/types";
-import { Search, ChevronDown } from "lucide-react";
+import { Search, ChevronDown, UserRound } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
+import { ptBR } from "date-fns/locale";
 import { Input } from "@/components/ui/input";
 import {
   DropdownMenu,
@@ -230,10 +231,16 @@ function ConversationItem({
 }: ConversationItemProps) {
   const contact = conversation.contact;
   const savedName = contact?.name?.trim();
+  const looksLikeInternalId = (value?: string | null) =>
+    Boolean(value && /^\d{14,}$/.test(value.replace(/\D/g, "")));
   const displayName =
-    savedName && !["você", "you"].includes(savedName.toLowerCase())
+    savedName &&
+    !looksLikeInternalId(savedName) &&
+    !["você", "you"].includes(savedName.toLowerCase())
       ? savedName
-      : contact?.phone || "Desconhecido";
+      : contact?.phone && !looksLikeInternalId(contact.phone)
+        ? contact.phone
+        : "Contato do WhatsApp";
   const initials = displayName.charAt(0).toUpperCase();
 
   const handleClick = useCallback(() => {
@@ -243,6 +250,7 @@ function ConversationItem({
   const timeAgo = conversation.last_message_at
     ? formatDistanceToNow(new Date(conversation.last_message_at), {
         addSuffix: false,
+        locale: ptBR,
       })
     : "";
 
@@ -262,6 +270,8 @@ function ConversationItem({
             alt={displayName}
             className="h-10 w-10 rounded-full object-cover"
           />
+        ) : displayName === "Contato do WhatsApp" ? (
+          <UserRound className="h-4 w-4 text-muted-foreground" />
         ) : (
           initials
         )}
