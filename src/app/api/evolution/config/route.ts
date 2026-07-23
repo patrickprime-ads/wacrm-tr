@@ -125,8 +125,31 @@ export async function POST(request: Request) {
       });
       let imported = 0;
       let skipped = 0;
+      let contactsUpdated = 0;
       let importWarning: string | null = null;
       try {
+        const contactResult = await evolution(config as ConfigRow, `/chat/findContacts/${instance}`, {
+          method: "POST",
+          body: JSON.stringify({ where: {}, take: 1000, skip: 0, orderBy: {} }),
+        });
+        const evolutionContacts = (Array.isArray(contactResult)
+          ? contactResult
+          : Array.isArray(contactResult.contacts)
+            ? contactResult.contacts
+            : []) as Array<{ id?: string; number?: string; pushName?: string; profilePictureUrl?: string | null }>;
+        for (const evolutionContact of evolutionContacts) {
+          const phone = String(evolutionContact.number || evolutionContact.id || "").split("@")[0].replace(/\D/g, "");
+          const name = evolutionContact.pushName?.trim();
+          if (!phone || !name || name.toLowerCase() === "você" || name.toLowerCase() === "you") continue;
+          const { data: updated } = await supabase
+            .from("contacts")
+            .update({ name, avatar_url: evolutionContact.profilePictureUrl || undefined })
+            .eq("account_id", accountId)
+            .eq("phone_normalized", phone)
+            .select("id");
+          contactsUpdated += updated?.length ?? 0;
+        }
+
         const history = await evolution(config as ConfigRow, `/chat/findMessages/${instance}`, {
           method: "POST",
           body: JSON.stringify({ where: { key: {} }, page: 1, offset: 250 }),
@@ -145,7 +168,7 @@ export async function POST(request: Request) {
       } catch (error) {
         importWarning = error instanceof Error ? error.message : "O histórico não pôde ser consultado";
       }
-      return NextResponse.json({ ok: true, imported, skipped, import_warning: importWarning });
+      return NextResponse.json({ ok: true, imported, skipped, contacts_updated: contactsUpdated, import_warning: importWarning });
     }
 
     if (body.action === "connect") {

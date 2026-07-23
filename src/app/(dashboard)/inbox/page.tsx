@@ -33,6 +33,7 @@ export default function InboxPage() {
   const [whatsappConnected, setWhatsappConnected] = useState<boolean | null>(
     null
   );
+  const [officialMetaConnected, setOfficialMetaConnected] = useState(false);
   /**
    * Bumped whenever we want children (ConversationList, MessageThread)
    * to refetch from the DB — used as a safety net against missed
@@ -187,7 +188,9 @@ export default function InboxPage() {
         supabase.from("evolution_config").select("status").eq("account_id", accountId).maybeSingle(),
       ]);
 
-      setWhatsappConnected(meta?.status === "connected" || evolution?.status === "open");
+      const metaConnected = meta?.status === "connected";
+      setOfficialMetaConnected(metaConnected);
+      setWhatsappConnected(metaConnected || evolution?.status === "open");
     };
 
     checkConnection();
@@ -619,6 +622,7 @@ export default function InboxPage() {
             onRefresh={handleManualRefresh}
             contactPanelOpen={contactPanelOpen}
             onToggleContactPanel={handleToggleContactPanel}
+            officialMetaConnected={officialMetaConnected}
           />
         </div>
 

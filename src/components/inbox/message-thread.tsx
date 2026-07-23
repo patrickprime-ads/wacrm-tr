@@ -25,6 +25,7 @@ import {
   PanelRightOpen,
   PanelRightClose,
   Bot,
+  CalendarClock,
 } from "lucide-react";
 import { format, isToday, isYesterday, differenceInHours } from "date-fns";
 import { Badge } from "@/components/ui/badge";
@@ -122,12 +123,13 @@ interface MessageThreadProps {
    */
   contactPanelOpen: boolean;
   onToggleContactPanel?: () => void;
+  officialMetaConnected?: boolean;
 }
 
 function formatDateSeparator(dateStr: string): string {
   const date = new Date(dateStr);
   if (isToday(date)) return "Hoje";
-  if (isYesterday(date)) return "Yesterday";
+  if (isYesterday(date)) return "Ontem";
   return format(date, "MMMM d, yyyy");
 }
 
@@ -180,6 +182,7 @@ export function MessageThread({
   onRefresh,
   contactPanelOpen,
   onToggleContactPanel,
+  officialMetaConnected = false,
 }: MessageThreadProps) {
   const { user, accountId } = useAuth();
   const canEditAi = useCan("edit-settings");
@@ -261,14 +264,14 @@ export function MessageThread({
     const expired = hoursSince >= 24;
 
     if (expired) {
-      return { expired: true, remaining: "Expired" };
+      return { expired: true, remaining: "Encerrada" };
     }
 
     const hoursLeft = 24 - hoursSince;
     const remaining =
       hoursLeft >= 1
-        ? `${Math.floor(hoursLeft)}h remaining`
-        : `${Math.floor(hoursLeft * 60)}m remaining`;
+        ? `${Math.floor(hoursLeft)}h restantes`
+        : `${Math.floor(hoursLeft * 60)}min restantes`;
 
     return { expired, remaining };
   }, [messages]);
@@ -918,6 +921,25 @@ export function MessageThread({
     [conversation, onAssignChange],
   );
 
+  const scheduleQuickFollowup = useCallback(async (delayHours: 1 | 24 | 72) => {
+    if (!conversation) return;
+    const response = await fetch("/api/ai/followups/schedule", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        conversation_id: conversation.id,
+        delay_hours: delayHours,
+        agent_id: selectedAiAgentId,
+      }),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      toast.error(data.error || "Não foi possível agendar o follow-up");
+      return;
+    }
+    toast.success(`Follow-up agendado para ${new Date(data.next_run_at).toLocaleString("pt-BR")}`);
+  }, [conversation, selectedAiAgentId]);
+
   // Empty state — same WhatsApp-style doodle background as the active
   // thread below, so swapping between empty/selected doesn't change the
   // pattern under the user?'s eye.
@@ -937,7 +959,11 @@ export function MessageThread({
     );
   }
 
-  const displayName = contact.name || contact.phone;
+  const savedName = contact.name?.trim();
+  const displayName =
+    savedName && !["você", "you"].includes(savedName.toLowerCase())
+      ? savedName
+      : contact.phone;
   const messageGroups = groupMessagesByDate(messages);
   const currentStatus = STATUS_OPTIONS.find(
     (s) => s.value === conversation.status
@@ -980,10 +1006,21 @@ export function MessageThread({
           <div className="min-w-0">
             <h2 className="truncate text-sm font-semibold text-foreground">{displayName}</h2>
             <p className="truncate text-xs text-muted-foreground">{contact.phone}</p>
+            {contact.lead_source && (
+              <span className="mt-0.5 inline-flex rounded-full bg-primary/10 px-1.5 py-0.5 text-[9px] font-medium text-primary">
+                {contact.lead_source === "meta_ads"
+                  ? "Anúncio Meta"
+                  : contact.lead_source === "google_ads"
+                    ? "Google Ads"
+                    : contact.lead_source === "whatsapp"
+                      ? "WhatsApp"
+                      : contact.lead_source}
+              </span>
+            )}
           </div>
           {/* Session timer badge — hidden on the narrowest phones so
               the name + back arrow keep their room. */}
-          <Badge
+          {officialMetaConnected && <Badge
             variant="outline"
             className={cn(
               "ml-1 hidden gap-1 border-border text-[10px] sm:inline-flex sm:ml-2",
@@ -992,10 +1029,25 @@ export function MessageThread({
           >
             <Clock className="h-3 w-3" />
             {sessionInfo.remaining}
-          </Badge>
+          </Badge>}
         </div>
 
         <div className="flex items-center gap-2">
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              title="Agendar follow-up"
+              className="inline-flex h-7 items-center justify-center gap-1 rounded-md px-2 text-xs text-muted-foreground hover:bg-muted hover:text-foreground"
+            >
+              <CalendarClock className="h-3.5 w-3.5" />
+              <span className="hidden xl:inline">Follow-up</span>
+              <ChevronDown className="h-3 w-3" />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="border-border bg-popover">
+              <DropdownMenuItem onClick={() => void scheduleQuickFollowup(1)}>Daqui a 1 hora</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => void scheduleQuickFollowup(24)}>Amanhã</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => void scheduleQuickFollowup(72)}>Daqui a 3 dias</DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
           <DropdownMenu>
             <DropdownMenuTrigger
               title="Agente de IA da conversa"
@@ -1259,7 +1311,7 @@ export function MessageThread({
 
       {/* Composer */}
       <MessageComposer
-        sessionExpired={sessionInfo.expired}
+        sessionExpired={officialMetaConnected && sessionInfo.expired}
         onSend={handleSend}
         onSendMedia={handleSendMedia}
         onOpenTemplates={handleOpenTemplates}

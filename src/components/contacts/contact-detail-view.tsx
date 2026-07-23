@@ -23,8 +23,6 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   Phone,
-  Mail,
-  Building2,
   Copy,
   Check,
   Loader2,
@@ -367,18 +365,6 @@ export function ContactDetailView({
                         <Copy className="size-3" />
                       )}
                     </button>
-                    {contact.email && (
-                      <span className="flex items-center gap-1">
-                        <Mail className="size-3" />
-                        {contact.email}
-                      </span>
-                    )}
-                    {contact.company && (
-                      <span className="flex items-center gap-1">
-                        <Building2 className="size-3" />
-                        {contact.company}
-                      </span>
-                    )}
                   </div>
                 </div>
               </div>
@@ -397,7 +383,7 @@ export function ContactDetailView({
                   value="tags"
                   className="data-active:bg-muted data-active:text-primary text-muted-foreground"
                 >
-                  Tags
+                  Etiquetas
                 </TabsTrigger>
                 <TabsTrigger
                   value="notes"
@@ -415,7 +401,7 @@ export function ContactDetailView({
                   value="deals"
                   className="data-active:bg-muted data-active:text-primary text-muted-foreground"
                 >
-                  Deals
+                  Vendas
                 </TabsTrigger>
               </TabsList>
 
@@ -437,22 +423,6 @@ export function ContactDetailView({
                     <Input
                       value={editPhone}
                       onChange={(e) => setEditPhone(e.target.value)}
-                      className="bg-muted border-border text-foreground h-8 text-sm"
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-muted-foreground text-xs">E-mail</Label>
-                    <Input
-                      value={editEmail}
-                      onChange={(e) => setEditEmail(e.target.value)}
-                      className="bg-muted border-border text-foreground h-8 text-sm"
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-muted-foreground text-xs">Empresa</Label>
-                    <Input
-                      value={editCompany}
-                      onChange={(e) => setEditCompany(e.target.value)}
                       className="bg-muted border-border text-foreground h-8 text-sm"
                     />
                   </div>

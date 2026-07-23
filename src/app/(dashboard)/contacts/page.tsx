@@ -252,7 +252,7 @@ export default function ContactsPage() {
     if (error) {
       toast.error('Falha ao excluir contatos');
     } else {
-      toast.success(`${ids.length} contact${ids.length === 1 ? '' : 's'} deleted`);
+      toast.success(`${ids.length} ${ids.length === 1 ? 'contato excluído' : 'contatos excluídos'}`);
       setSelected(new Set());
       fetchContatos();
     }
@@ -272,7 +272,7 @@ export default function ContactsPage() {
         <div>
           <h1 className="text-2xl font-bold text-foreground">Contatos</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Gerencie sua lista de contatos. {totalCount > 0 && `${totalCount} total contacts.`}
+            Gerencie sua lista de contatos. {totalCount > 0 && `${totalCount} contatos cadastrados.`}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -319,7 +319,7 @@ export default function ContactsPage() {
             // set shrinks/grows, page N may no longer be valid.
             setPage(0);
           }}
-          placeholder="Buscar por nome, telefone ou e-mail..."
+          placeholder="Buscar por nome ou telefone..."
           className="pl-8 bg-card border-border text-foreground placeholder:text-muted-foreground"
         />
       </div>
@@ -329,7 +329,7 @@ export default function ContactsPage() {
         <div className="flex items-center justify-between gap-4 rounded-lg border border-border bg-muted/40 px-4 py-2">
           <p className="text-sm text-foreground">
             <span className="font-medium">{selected.size}</span>{' '}
-            {selected.size === 1 ? 'contact' : 'contacts'} selecionado(s)
+            {selected.size === 1 ? 'contato selecionado' : 'contatos selecionados'}
           </p>
           <div className="flex items-center gap-2">
             <Button
@@ -370,9 +370,8 @@ export default function ContactsPage() {
               </TableHead>
               <TableHead className="text-muted-foreground">Nome</TableHead>
               <TableHead className="text-muted-foreground">Telefone</TableHead>
-              <TableHead className="text-muted-foreground hidden md:table-cell">E-mail</TableHead>
-              <TableHead className="text-muted-foreground hidden lg:table-cell">Empresa</TableHead>
-              <TableHead className="text-muted-foreground hidden md:table-cell">Tags</TableHead>
+              <TableHead className="text-muted-foreground hidden md:table-cell">Origem</TableHead>
+              <TableHead className="text-muted-foreground hidden md:table-cell">Etiquetas</TableHead>
               <TableHead className="text-muted-foreground hidden lg:table-cell">Criado</TableHead>
               <TableHead className="text-muted-foreground w-12" />
             </TableRow>
@@ -380,7 +379,7 @@ export default function ContactsPage() {
           <TableBody>
             {loading ? (
               <TableRow className="border-border">
-                <TableCell colSpan={8} className="text-center py-12">
+                <TableCell colSpan={6} className="text-center py-12">
                   <div className="flex flex-col items-center gap-2">
                     <Loader2 className="size-6 animate-spin text-primary" />
                     <p className="text-sm text-muted-foreground">Carregando contatos...</p>
@@ -389,11 +388,11 @@ export default function ContactsPage() {
               </TableRow>
             ) : contacts.length === 0 ? (
               <TableRow className="border-border">
-                <TableCell colSpan={8} className="text-center py-12">
+                <TableCell colSpan={6} className="text-center py-12">
                   <div className="flex flex-col items-center gap-2">
                     <Users className="size-8 text-muted-foreground" />
                     <p className="text-sm text-muted-foreground">
-                      {search ? 'Sem contatos match your search.' : 'Sem contatos yet.'}
+                      {search ? 'Nenhum contato encontrado para esta busca.' : 'Nenhum contato cadastrado.'}
                     </p>
                     {!search && (
                       <Button
@@ -429,11 +428,10 @@ export default function ContactsPage() {
                   <TableCell className="text-muted-foreground font-mono text-xs">
                     {contact.phone}
                   </TableCell>
-                  <TableCell className="text-muted-foreground hidden md:table-cell text-sm">
-                    {contact.email || <span className="text-muted-foreground">-</span>}
-                  </TableCell>
-                  <TableCell className="text-muted-foreground hidden lg:table-cell text-sm">
-                    {contact.company || <span className="text-muted-foreground">-</span>}
+                  <TableCell className="hidden md:table-cell">
+                    <span className="rounded-full bg-primary/10 px-2 py-1 text-[10px] font-medium text-primary">
+                      {contact.lead_source === "meta_ads" ? "Anúncio Meta" : contact.lead_source === "google_ads" ? "Google Ads" : contact.lead_source === "whatsapp" ? "WhatsApp" : contact.lead_source || "Manual"}
+                    </span>
                   </TableCell>
                   <TableCell className="hidden md:table-cell">
                     <div className="flex flex-wrap gap-1">
@@ -461,11 +459,7 @@ export default function ContactsPage() {
                     </div>
                   </TableCell>
                   <TableCell className="text-muted-foreground text-xs hidden lg:table-cell">
-                    {new Date(contact.created_at).toLocaleDateString('en-US', {
-                      month: 'short',
-                      day: 'numeric',
-                      year: 'numeric',
-                    })}
+                    {new Date(contact.created_at).toLocaleDateString('pt-BR')}
                   </TableCell>
                   <TableCell>
                     <DropdownMenu>

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { CURRENCIES } from "@/lib/currency";
+import { displayStageName } from "@/lib/pipelines/display";
 import type {
   Contact,
   Conversation,
@@ -151,7 +152,7 @@ export function DealForm({
 
   async function handleSave() {
     if (!title.trim() || !contactId || !stageId) {
-      toast.error("Title, contact, and stage are required");
+      toast.error("Informe o título, o contato e a etapa");
       return;
     }
     setSaving(true);
@@ -252,17 +253,17 @@ export function DealForm({
         <div className="flex h-full flex-col">
           <SheetHeader className="border-b border-border/50 p-4">
             <SheetTitle className="text-popover-foreground">
-              {deal ? "Editar negócio" : "Novo Negócio"}
+              {deal ? "Editar venda" : "Nova Venda"}
             </SheetTitle>
           </SheetHeader>
 
           <div className="flex-1 overflow-y-auto p-4 space-y-4">
             <div className="grid gap-2">
-              <Label className="text-muted-foreground">Title</Label>
+              <Label className="text-muted-foreground">Título da venda</Label>
               <Input
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                placeholder="Deal title"
+                placeholder="Ex.: Venda cartão premium"
                 className="border-border bg-muted text-foreground"
               />
             </div>
@@ -288,7 +289,7 @@ export function DealForm({
                   className="mt-1 inline-flex items-center gap-1.5 self-start rounded-md bg-primary/10 px-2 py-1 text-xs text-primary hover:bg-primary/20"
                 >
                   <MessageSquare className="h-3 w-3" />
-                  Link to Conversation
+                  Abrir conversa
                 </Link>
               )}
             </div>
@@ -308,7 +309,7 @@ export function DealForm({
                 </div>
               </div>
               <div className="grid gap-2">
-                <Label className="text-muted-foreground">Currency</Label>
+                <Label className="text-muted-foreground">Moeda</Label>
                 <select
                   value={currency}
                   onChange={(e) => setCurrency(e.target.value)}
@@ -334,7 +335,7 @@ export function DealForm({
             </div>
 
             <div className="grid gap-2">
-              <Label className="text-muted-foreground">Stage</Label>
+              <Label className="text-muted-foreground">Etapa</Label>
               <select
                 value={stageId}
                 onChange={(e) => setStageId(e.target.value)}
@@ -342,14 +343,14 @@ export function DealForm({
               >
                 {stages.map((s) => (
                   <option key={s.id} value={s.id}>
-                    {s.name}
+                    {displayStageName(s.name)}
                   </option>
                 ))}
               </select>
             </div>
 
             <div className="grid gap-2">
-              <Label className="text-muted-foreground">Assigned To</Label>
+              <Label className="text-muted-foreground">Responsável</Label>
               <select
                 value={assignedTo}
                 onChange={(e) => setAssignedTo(e.target.value)}
@@ -369,7 +370,7 @@ export function DealForm({
               <Textarea
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
-                placeholder="Add notes..."
+                placeholder="Adicionar observações..."
                 className="min-h-[100px] border-border bg-muted text-foreground"
               />
             </div>

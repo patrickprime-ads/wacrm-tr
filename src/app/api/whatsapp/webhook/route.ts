@@ -53,6 +53,14 @@ interface WhatsAppMessage {
   }
   /** Present when the customer swipe-replies to one of our messages. */
   context?: { id: string }
+  /** Present when the conversation started from a Click-to-WhatsApp ad. */
+  referral?: {
+    source_type?: string
+    source_id?: string
+    source_url?: string
+    headline?: string
+    body?: string
+  }
 }
 
 interface WhatsAppWebhookEntry {
@@ -527,6 +535,12 @@ async function processMessage(
   )
   if (!contactOutcome) return
   const contactRecord = contactOutcome.contact
+  if (message.referral) {
+    await supabaseAdmin()
+      .from('contacts')
+      .update({ lead_source: 'meta_ads' })
+      .eq('id', contactRecord.id)
+  }
 
   // Find or create conversation
   const conversation = await findOrCreateConversation(

@@ -81,7 +81,7 @@ export async function importEvolutionMessage(accountId: string, data: EvolutionM
       .insert({
         account_id: accountId,
         user_id: owner.user_id,
-        name: data.pushName || phone,
+        name: data.key?.fromMe ? phone : data.pushName || phone,
         phone,
         lead_source: "whatsapp",
       })

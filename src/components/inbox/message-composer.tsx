@@ -407,7 +407,7 @@ export function MessageComposer({
       {sessionExpired && (
         <div className="mb-2 flex items-center justify-between rounded-lg bg-amber-500/10 px-3 py-2">
           <p className="text-xs text-amber-400">
-            24-hour session expired. Use a template to re-engage.
+            A janela de 24 horas encerrou. Use um modelo para retomar o contato.
           </p>
           <Button
             variant="ghost"
@@ -416,7 +416,7 @@ export function MessageComposer({
             onClick={onOpenTemplates}
           >
             <LayoutTemplate className="mr-1 h-3 w-3" />
-            Templates
+            Modelos
           </Button>
         </div>
       )}

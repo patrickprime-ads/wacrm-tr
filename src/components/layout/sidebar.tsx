@@ -103,21 +103,22 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
   const { profile, profileLoading, account, accountRole, isMasterAdmin, signOut } = useAuth();
   const totalUnread = useTotalUnread();
   const t = useTranslations('nav');
-  const navItems: NavItem[] = [
+  const allNavItems: (NavItem & { adminOnly?: boolean })[] = [
   { href: "/dashboard", label: t('dashboard'), icon: LayoutDashboard },
   { href: "/inbox", label: t('inbox'), icon: MessageSquare },
   { href: "/contacts", label: t('contacts'), icon: Users },
   { href: "/pipelines", label: t('pipelines'), icon: GitBranch },
-  { href: "/lead-tracking", label: "Tracking de Leads", icon: Target },
-  { href: "/ai-agents", label: "Agentes IA", icon: Bot },
-  { href: "/broadcasts", label: "Disparos", icon: Radio },
-  { href: "/automations", label: t('automations'), icon: Zap },
-  { href: "/flows", label: t('flows'), icon: Workflow, beta: true },
+  { href: "/lead-tracking", label: "Tracking de Leads", icon: Target, adminOnly: true },
+  { href: "/ai-agents", label: "Agentes IA", icon: Bot, adminOnly: true },
+  { href: "/broadcasts", label: "Disparos", icon: Radio, adminOnly: true },
+  { href: "/automations", label: t('automations'), icon: Zap, adminOnly: true },
+  { href: "/flows", label: t('flows'), icon: Workflow, beta: true, adminOnly: true },
 ];
+  const navItems = allNavItems.filter((item) => !item.adminOnly || accountRole === "owner" || accountRole === "admin");
 
 const bottomNavItems = [
   ...(isMasterAdmin ? [{ href: "/master", label: "Painel Master", icon: Crown }] : []),
-  { href: "/settings", label: t('settings'), icon: Settings },
+  ...((accountRole === "owner" || accountRole === "admin") ? [{ href: "/settings", label: t('settings'), icon: Settings }] : []),
 ];
   // Only surface the account-name strip when it actually carries
   // information. A solo user?'s personal account is named after them

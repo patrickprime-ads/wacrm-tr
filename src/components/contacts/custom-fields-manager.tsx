@@ -184,7 +184,7 @@ export function CustomFieldsPanel() {
               void handleCreate();
             }
           }}
-          placeholder="New field name…"
+          placeholder="Nome do novo campo..."
           className="bg-muted text-foreground"
         />
         <Button

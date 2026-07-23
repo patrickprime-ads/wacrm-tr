@@ -97,6 +97,7 @@ export interface Contact {
   name?: string;
   email?: string;
   company?: string;
+  lead_source?: string;
   avatar_url?: string;
   created_at: string;
   updated_at: string;
