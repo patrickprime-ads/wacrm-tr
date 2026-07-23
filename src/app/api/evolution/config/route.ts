@@ -129,7 +129,7 @@ export async function POST(request: Request) {
       try {
         const history = await evolution(config as ConfigRow, `/chat/findMessages/${instance}`, {
           method: "POST",
-          body: JSON.stringify({ where: { key: {} }, page: 1, offset: 100 }),
+          body: JSON.stringify({ where: { key: {} }, page: 1, offset: 250 }),
         });
         const container = (history.messages ?? history) as Record<string, unknown> | EvolutionMessage[];
         const records = Array.isArray(container)

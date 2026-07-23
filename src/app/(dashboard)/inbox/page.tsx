@@ -437,6 +437,21 @@ export default function InboxPage() {
       setActiveConversation(conv);
       setActiveContact(conv.contact ?? null);
       setMessages([]);
+      // Persist the read state immediately on selection. The thread also
+      // keeps its reset effect for messages that arrive while it is open,
+      // but the click itself must not depend on a later render/effect.
+      if (conv.unread_count > 0) {
+        const supabase = createClient();
+        void supabase
+          .from("conversations")
+          .update({ unread_count: 0 })
+          .eq("id", conv.id)
+          .then(({ error }) => {
+            if (error) {
+              console.error("Failed to mark conversation as read:", error);
+            }
+          });
+      }
       // Optimistically clear the unread badge for this conv. The
       // server-side reset is fired by the unread-reset effect inside
       // MessageThread (which reads activeConversation.unread_count, not
