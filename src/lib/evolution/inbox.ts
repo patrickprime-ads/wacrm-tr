@@ -82,6 +82,59 @@ export async function importEvolutionMessage(accountId: string, data: EvolutionM
   const externalId = data.key?.id || data.id;
   if (!phone || !externalId) return "ignored" as const;
 
+  // Evolution v2 may identify the same person with both a real WhatsApp
+  // JID and an internal @lid. Older imports stored the @lid digits as the
+  // phone number. Reconcile that legacy contact before the duplicate-message
+  // shortcut so a manual history sync can repair existing conversations.
+  const realJid = jidCandidates.find(
+    (value) =>
+      value.endsWith("@s.whatsapp.net") || value.endsWith("@c.us"),
+  );
+  const lidJid = jidCandidates.find((value) => value.endsWith("@lid"));
+  const realPhone = realJid?.split("@")[0].replace(/\D/g, "") || "";
+  const lidNumber = lidJid?.split("@")[0].replace(/\D/g, "") || "";
+  if (realPhone && lidNumber && realPhone !== lidNumber) {
+    const { data: identityMatches } = await db
+      .from("contacts")
+      .select("id,phone_normalized")
+      .eq("account_id", accountId)
+      .in("phone_normalized", [realPhone, lidNumber]);
+    const realContact = identityMatches?.find(
+      (contact) => contact.phone_normalized === realPhone,
+    );
+    const lidContact = identityMatches?.find(
+      (contact) => contact.phone_normalized === lidNumber,
+    );
+    const inboundName =
+      !data.key?.fromMe &&
+      data.pushName?.trim() &&
+      !["você", "you"].includes(data.pushName.trim().toLowerCase())
+        ? data.pushName.trim()
+        : null;
+    if (lidContact && realContact && lidContact.id !== realContact.id) {
+      await db
+        .from("conversations")
+        .update({ contact_id: realContact.id })
+        .eq("account_id", accountId)
+        .eq("contact_id", lidContact.id);
+      if (inboundName) {
+        await db
+          .from("contacts")
+          .update({ name: inboundName })
+          .eq("id", realContact.id);
+      }
+    } else if (lidContact && !realContact) {
+      await db
+        .from("contacts")
+        .update({
+          phone: realPhone,
+          phone_normalized: realPhone,
+          ...(inboundName ? { name: inboundName } : {}),
+        })
+        .eq("id", lidContact.id);
+    }
+  }
+
   const { data: duplicate } = await db
     .from("messages")
     .select("id, conversations!inner(account_id)")

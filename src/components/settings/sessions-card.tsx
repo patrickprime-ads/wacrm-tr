@@ -35,12 +35,12 @@ export function SessionsCard() {
       // triggers the usual redirect.
       const { error } = await supabase.auth.signOut({ scope: 'global' });
       if (error) {
-        toast.error(`Sign-out failed: ${error.message}`);
+        toast.error(`Não foi possível encerrar as sessões: ${error.message}`);
         return;
       }
       window.location.href = '/login';
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Desconhecido error';
+      const msg = err instanceof Error ? err.message : 'Erro desconhecido';
       toast.error(msg);
     } finally {
       setSigningOut(false);
@@ -56,8 +56,8 @@ export function SessionsCard() {
             Sessões ativas
           </CardTitle>
           <CardDescription className="text-muted-foreground">
-            Sign out de every device where you&apos;re logged in — including
-            this one. Useful if you lost a laptop or shared your password.
+            Encerre o acesso em todos os dispositivos, inclusive neste. Use
+            esta opção se perdeu um aparelho ou compartilhou sua senha.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -67,7 +67,7 @@ export function SessionsCard() {
             onClick={() => setOpen(true)}
           >
             <LogOut className="size-4" />
-            Sign out de all devices
+            Sair de todos os dispositivos
           </Button>
         </CardContent>
       </Card>
@@ -77,9 +77,8 @@ export function SessionsCard() {
           <DialogHeader>
             <DialogTitle>Sair de todos os dispositivos?</DialogTitle>
             <DialogDescription>
-              Every device logged into this account will be signed out and
-              will need to log in again. You will be redirected to the login
-              page.
+              Todos os dispositivos conectados serão desconectados e precisarão
+              entrar novamente. Você será redirecionado para a tela de login.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -95,10 +94,10 @@ export function SessionsCard() {
               {signingOut ? (
                 <>
                   <Loader2 className="size-4 animate-spin" />
-                  Signing out…
+                  Saindo…
                 </>
               ) : (
-                'Sign out everywhere'
+                'Sair de todos'
               )}
             </Button>
           </DialogFooter>

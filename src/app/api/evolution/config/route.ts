@@ -362,6 +362,16 @@ export async function POST(request: Request) {
           profilePictureUrl?: string | null;
           profilePicUrl?: string | null;
         }>;
+        const { data: localContacts } = await supabase
+          .from('contacts')
+          .select('id, phone_normalized, avatar_url')
+          .eq('account_id', accountId);
+        const contactsByPhone = new Map(
+          (localContacts ?? []).map((contact) => [
+            contact.phone_normalized,
+            contact,
+          ]),
+        );
         for (const evolutionContact of evolutionContacts) {
           const phone = String(evolutionContact.number || '')
             .split('@')[0]
@@ -380,41 +390,24 @@ export async function POST(request: Request) {
               ? name
               : null;
           const identifiers = [...new Set([phone, internalId].filter(Boolean))];
-          const { data: matches } = await supabase
-            .from('contacts')
-            .select('id, phone_normalized, avatar_url')
-            .eq('account_id', accountId)
-            .in('phone_normalized', identifiers);
-          let avatarUrl =
+          const matches = [
+            ...new Map(
+              identifiers
+                .map((identifier) => contactsByPhone.get(identifier))
+                .filter(Boolean)
+                .map((contact) => [contact!.id, contact!]),
+            ).values(),
+          ];
+          if (!matches.length) continue;
+          const avatarUrl =
             evolutionContact.profilePictureUrl ||
             evolutionContact.profilePicUrl ||
             null;
-          if (!avatarUrl && phone && matches?.length) {
-            try {
-              const pictureResult = await evolution(
-                config as ConfigRow,
-                `/chat/fetchProfilePictureUrl/${instance}`,
-                {
-                  method: 'POST',
-                  body: JSON.stringify({ number: phone }),
-                },
-              );
-              avatarUrl = String(
-                pictureResult.profilePictureUrl ||
-                  pictureResult.profilePicUrl ||
-                  pictureResult.url ||
-                  '',
-              ) || null;
-            } catch {
-              // Some contacts hide their photo or the Evolution version
-              // may not expose this endpoint. The name/phone sync continues.
-            }
-          }
           const realPhoneAlreadyExists = Boolean(
             phone &&
-            matches?.some((contact) => contact.phone_normalized === phone)
+            matches.some((contact) => contact.phone_normalized === phone)
           );
-          for (const match of matches ?? []) {
+          for (const match of matches) {
             const replaceInternalId = Boolean(
               phone &&
               internalId &&
@@ -441,7 +434,7 @@ export async function POST(request: Request) {
           `/chat/findMessages/${instance}`,
           {
             method: 'POST',
-            body: JSON.stringify({ where: { key: {} }, page: 1, offset: 250 }),
+            body: JSON.stringify({ where: { key: {} }, page: 1, offset: 50 }),
           }
         );
         const container = (history.messages ?? history) as
