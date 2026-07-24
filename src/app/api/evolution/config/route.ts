@@ -440,10 +440,30 @@ export async function POST(request: Request) {
             ).values(),
           ];
           if (!matches.length) continue;
-          const avatarUrl =
+          let avatarUrl =
             evolutionContact.profilePictureUrl ||
             evolutionContact.profilePicUrl ||
             null;
+          const needsAvatar = matches.some((contact) => !contact.avatar_url);
+          if (!avatarUrl && needsAvatar && (realJid || phone)) {
+            try {
+              const picture = await evolution(
+                config as ConfigRow,
+                `/chat/fetchProfilePictureUrl/${instance}`,
+                {
+                  method: 'POST',
+                  body: JSON.stringify({ number: realJid || phone }),
+                },
+              );
+              avatarUrl =
+                (picture.profilePictureUrl as string | undefined) ||
+                ((picture.data as Record<string, unknown> | undefined)
+                  ?.profilePictureUrl as string | undefined) ||
+                null;
+            } catch {
+              // The contact may hide their photo through WhatsApp privacy.
+            }
+          }
           const realPhoneAlreadyExists = Boolean(
             phone &&
             matches.some((contact) => contact.phone_normalized === phone)

@@ -144,16 +144,27 @@ export async function importEvolutionMessage(accountId: string, data: EvolutionM
     .maybeSingle();
   if (duplicate) {
     const referral = adReferral(data);
-    if (referral) {
+    const inboundName =
+      !data.key?.fromMe &&
+      data.pushName?.trim() &&
+      !["você", "you"].includes(data.pushName.trim().toLowerCase())
+        ? data.pushName.trim()
+        : null;
+    if (referral || inboundName) {
       await db
         .from("contacts")
         .update({
-          lead_source: "meta_ads",
-          source_detail: referral.label,
-          source_url: referral.url,
-          utm_source: "meta",
-          utm_medium: "paid_social",
-          utm_content: referral.label,
+          ...(inboundName ? { name: inboundName } : {}),
+          ...(referral
+            ? {
+                lead_source: "meta_ads",
+                source_detail: referral.label,
+                source_url: referral.url,
+                utm_source: "meta",
+                utm_medium: "paid_social",
+                utm_content: referral.label,
+              }
+            : {}),
         })
         .eq("account_id", accountId)
         .eq("phone_normalized", phone);
@@ -179,13 +190,20 @@ export async function importEvolutionMessage(accountId: string, data: EvolutionM
     .maybeSingle();
   if (!contact) {
     const referral = adReferral(data);
+    const inboundName =
+      !data.key?.fromMe &&
+      data.pushName?.trim() &&
+      !["você", "you"].includes(data.pushName.trim().toLowerCase())
+        ? data.pushName.trim()
+        : null;
     const created = await db
       .from("contacts")
       .insert({
         account_id: accountId,
         user_id: owner.user_id,
-        name: data.key?.fromMe ? phone : data.pushName || phone,
+        name: inboundName || phone,
         phone,
+        lead_temperature: "frio",
         lead_source: referral ? "meta_ads" : "whatsapp",
         source_detail: referral?.label || "WhatsApp Business",
         source_url: referral?.url || null,

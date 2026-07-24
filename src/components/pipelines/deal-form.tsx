@@ -116,7 +116,7 @@ export function DealForm({
   const [notes, setNotes] = useState('');
   const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
   const [leadTemperature, setLeadTemperature] =
-    useState<LeadTemperature>('curioso');
+    useState<LeadTemperature>('frio');
   const [responseTimeBucket, setResponseTimeBucket] = useState('');
 
   const [contacts, setContacts] = useState<Contact[]>([]);
@@ -150,7 +150,7 @@ export function DealForm({
       setExpectedCloseDate(deal.expected_close_date ?? '');
       setNotes(deal.notes ?? '');
       setSelectedProducts(deal.selected_products ?? []);
-      setLeadTemperature(deal.contact?.lead_temperature ?? 'curioso');
+      setLeadTemperature(deal.contact?.lead_temperature ?? 'frio');
       setResponseTimeBucket(deal.contact?.response_time_bucket ?? '');
       setLeadSource(deal.contact?.lead_source ?? 'presencial');
       setNewContactMode(false);

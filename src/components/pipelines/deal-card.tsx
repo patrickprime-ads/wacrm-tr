@@ -63,7 +63,7 @@ export function DealCard({ deal, stage, onEdit, onHistory, isOverlay }: DealCard
       ? savedContactName
       : deal.contact?.phone || "Sem contato";
   const assigneeLabel = deal.assignee?.full_name || null;
-  const leadTag = leadLabels[deal.contact?.lead_temperature ?? "curioso"];
+  const leadTag = leadLabels[deal.contact?.lead_temperature ?? "frio"];
 
   return (
     <div

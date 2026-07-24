@@ -156,7 +156,7 @@ export default function LeadScoringPage() {
   const leads = useMemo<ScoredLead[]>(() => {
     return contacts
       .map((contact) => {
-        const classification = contact.lead_temperature ?? "curioso";
+        const classification = contact.lead_temperature ?? "frio";
         let score: number = rules[classification];
         if (contact.lead_source === "meta_ads" || contact.lead_source === "google_ads") score += rules.paid_source_bonus;
         if (contact.response_time_bucket === "Até 5 min") score += rules.fast_response_bonus;
