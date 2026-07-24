@@ -1,7 +1,11 @@
 import { NextResponse } from "next/server";
 import { decrypt } from "@/lib/whatsapp/encryption";
 import { supabaseAdmin } from "@/lib/flows/admin-client";
-import { importEvolutionMessage, type EvolutionMessage } from "@/lib/evolution/inbox";
+import {
+  importEvolutionMessage,
+  mergeEvolutionContactIdentity,
+  type EvolutionMessage,
+} from "@/lib/evolution/inbox";
 
 export async function POST(request: Request) {
   try {
@@ -50,8 +54,22 @@ export async function POST(request: Request) {
           : [];
       let updated = 0;
       for (const contact of contacts) {
-        const phone = digits(contact.number);
-        const internalId = digits(contact.id);
+        const identityCandidates = [
+          contact.number,
+          contact.remoteJid,
+          contact.remoteJidAlt,
+          contact.id,
+        ].filter((value): value is string => Boolean(value));
+        const realIdentity =
+          identityCandidates.find(
+            (value) =>
+              value.endsWith("@s.whatsapp.net") || value.endsWith("@c.us"),
+          ) || contact.number;
+        const lidIdentity = identityCandidates.find((value) =>
+          value.endsWith("@lid"),
+        );
+        const phone = digits(realIdentity);
+        const internalId = digits(lidIdentity || contact.id);
         const identifiers = [...new Set([phone, internalId].filter(Boolean))];
         if (!identifiers.length) continue;
         const { data: matches } = await db
@@ -63,8 +81,32 @@ export async function POST(request: Request) {
           phone &&
             matches?.some((match) => match.phone_normalized === phone),
         );
+        const realContact = matches?.find(
+          (match) => match.phone_normalized === phone,
+        );
+        const lidContact = matches?.find(
+          (match) => match.phone_normalized === internalId,
+        );
+        const mergedDuplicate =
+          realContact &&
+          lidContact &&
+          realContact.id !== lidContact.id &&
+          (await mergeEvolutionContactIdentity(
+            config.account_id,
+            realContact.id,
+            lidContact.id,
+          ));
         for (const match of matches ?? []) {
-          const name = (contact.pushName || contact.name)?.trim();
+          if (mergedDuplicate && match.id === lidContact?.id) continue;
+          const name = (
+            contact.pushName ||
+            contact.name ||
+            contact.contactName ||
+            contact.savedName ||
+            contact.verifiedName ||
+            contact.notify ||
+            contact.businessName
+          )?.trim();
           const avatar =
             contact.profilePictureUrl || contact.profilePicUrl || null;
           const replaceInternalId = Boolean(
@@ -109,8 +151,15 @@ export async function POST(request: Request) {
 type EvolutionContact = {
   id?: string;
   number?: string;
+  remoteJid?: string;
+  remoteJidAlt?: string;
   pushName?: string;
   name?: string;
+  contactName?: string;
+  savedName?: string;
+  verifiedName?: string;
+  notify?: string;
+  businessName?: string;
   profilePictureUrl?: string | null;
   profilePicUrl?: string | null;
 };

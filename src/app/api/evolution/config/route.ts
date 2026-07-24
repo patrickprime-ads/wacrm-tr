@@ -4,6 +4,7 @@ import { decrypt, encrypt } from '@/lib/whatsapp/encryption';
 import { randomBytes } from 'node:crypto';
 import {
   importEvolutionMessage,
+  mergeEvolutionContactIdentity,
   type EvolutionMessage,
 } from '@/lib/evolution/inbox';
 
@@ -115,6 +116,17 @@ function profilePictureUrlFrom(value: unknown): string | null {
     if (nested) return nested;
   }
   return null;
+}
+
+function evolutionRecords(value: unknown): unknown[] {
+  if (Array.isArray(value)) return value;
+  if (!value || typeof value !== 'object') return [];
+  const record = value as Record<string, unknown>;
+  for (const key of ['contacts', 'chats', 'records', 'data', 'response']) {
+    const nested = evolutionRecords(record[key]);
+    if (nested.length) return nested;
+  }
+  return [];
 }
 
 export async function GET() {
@@ -373,13 +385,21 @@ export async function POST(request: Request) {
           name?: string;
           profilePictureUrl?: string | null;
           profilePicUrl?: string | null;
+          contactName?: string;
+          savedName?: string;
+          verifiedName?: string;
+          notify?: string;
+          businessName?: string;
+          lastMessage?: {
+            pushName?: string;
+            key?: {
+              remoteJid?: string;
+              remoteJidAlt?: string;
+            };
+          };
         };
-        const evolutionContacts = (
-          Array.isArray(contactResult)
-            ? contactResult
-            : Array.isArray(contactResult.contacts)
-              ? contactResult.contacts
-              : []
+        const evolutionContacts = evolutionRecords(
+          contactResult,
         ) as EvolutionIdentity[];
         try {
           const chatResult = await evolution(
@@ -395,13 +415,7 @@ export async function POST(request: Request) {
               }),
             },
           );
-          const chats = (
-            Array.isArray(chatResult)
-              ? chatResult
-              : Array.isArray(chatResult.chats)
-                ? chatResult.chats
-                : []
-          ) as EvolutionIdentity[];
+          const chats = evolutionRecords(chatResult) as EvolutionIdentity[];
           evolutionContacts.push(...chats);
         } catch {
           // Some Evolution releases do not expose findChats.
@@ -422,6 +436,8 @@ export async function POST(request: Request) {
             evolutionContact.remoteJid,
             evolutionContact.remoteJidAlt,
             evolutionContact.id,
+            evolutionContact.lastMessage?.key?.remoteJid,
+            evolutionContact.lastMessage?.key?.remoteJidAlt,
           ].filter((value): value is string => Boolean(value));
           const realJid =
             jidCandidates.find(
@@ -437,7 +453,14 @@ export async function POST(request: Request) {
             .split('@')[0]
             .replace(/\D/g, '');
           const name = (
-            evolutionContact.pushName || evolutionContact.name
+            evolutionContact.pushName ||
+            evolutionContact.name ||
+            evolutionContact.contactName ||
+            evolutionContact.savedName ||
+            evolutionContact.verifiedName ||
+            evolutionContact.notify ||
+            evolutionContact.businessName ||
+            evolutionContact.lastMessage?.pushName
           )?.trim();
           if (!phone && !internalId) continue;
           const validName =
@@ -491,11 +514,18 @@ export async function POST(request: Request) {
             lidContact &&
             realContact.id !== lidContact.id
           ) {
-            await supabase
-              .from('conversations')
-              .update({ contact_id: realContact.id })
-              .eq('account_id', accountId)
-              .eq('contact_id', lidContact.id);
+            const merged = await mergeEvolutionContactIdentity(
+              accountId,
+              realContact.id,
+              lidContact.id,
+            );
+            if (!merged) {
+              await supabase
+                .from('conversations')
+                .update({ contact_id: realContact.id })
+                .eq('account_id', accountId)
+                .eq('contact_id', lidContact.id);
+            }
           }
           for (const match of matches) {
             const replaceInternalId = Boolean(

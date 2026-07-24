@@ -14,6 +14,20 @@ export type EvolutionMessage = {
   message?: Record<string, unknown>;
 };
 
+export async function mergeEvolutionContactIdentity(
+  accountId: string,
+  survivorId: string,
+  duplicateId: string,
+) {
+  const db = supabaseAdmin();
+  const { error } = await db.rpc("merge_evolution_contact_identity", {
+    p_account_id: accountId,
+    p_survivor_id: survivorId,
+    p_duplicate_id: duplicateId,
+  });
+  return !error;
+}
+
 function messageText(data: EvolutionMessage) {
   const message = data.message ?? {};
   const extended = message.extendedTextMessage as { text?: string } | undefined;
@@ -112,11 +126,19 @@ export async function importEvolutionMessage(accountId: string, data: EvolutionM
         ? data.pushName.trim()
         : null;
     if (lidContact && realContact && lidContact.id !== realContact.id) {
-      await db
-        .from("conversations")
-        .update({ contact_id: realContact.id })
-        .eq("account_id", accountId)
-        .eq("contact_id", lidContact.id);
+      const merged = await mergeEvolutionContactIdentity(
+        accountId,
+        realContact.id,
+        lidContact.id,
+      );
+      if (!merged) {
+        // Compatibility fallback until migration 040 is installed.
+        await db
+          .from("conversations")
+          .update({ contact_id: realContact.id })
+          .eq("account_id", accountId)
+          .eq("contact_id", lidContact.id);
+      }
       if (inboundName) {
         await db
           .from("contacts")
