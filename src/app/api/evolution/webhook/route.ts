@@ -47,11 +47,7 @@ export async function POST(request: Request) {
       event === "contacts.set" ||
       event === "contacts.update"
     ) {
-      const contacts = Array.isArray(payload.data)
-        ? (payload.data as EvolutionContact[])
-        : payload.data
-          ? [payload.data as EvolutionContact]
-          : [];
+      const contacts = contactRecords(payload.data);
       let updated = 0;
       for (const contact of contacts) {
         const identityCandidates = [
@@ -136,7 +132,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: true });
     }
 
-    const messages = Array.isArray(payload.data) ? payload.data : payload.data ? [payload.data] : [];
+    const messages = messageRecords(payload.data);
     let imported = 0;
     for (const message of messages) {
       if (await importEvolutionMessage(config.account_id, message) === "imported") imported += 1;
@@ -168,4 +164,34 @@ function digits(value?: string) {
   return String(value || "")
     .split("@")[0]
     .replace(/\D/g, "");
+}
+
+function contactRecords(value: unknown): EvolutionContact[] {
+  if (Array.isArray(value)) {
+    return value.flatMap((item) => contactRecords(item));
+  }
+  if (!value || typeof value !== "object") return [];
+  const record = value as Record<string, unknown>;
+  for (const key of ["contacts", "records", "data", "response"]) {
+    if (record[key]) {
+      const nested = contactRecords(record[key]);
+      if (nested.length) return nested;
+    }
+  }
+  return [record as EvolutionContact];
+}
+
+function messageRecords(value: unknown): EvolutionMessage[] {
+  if (Array.isArray(value)) {
+    return value.flatMap((item) => messageRecords(item));
+  }
+  if (!value || typeof value !== "object") return [];
+  const record = value as Record<string, unknown>;
+  for (const key of ["messages", "records", "data", "response"]) {
+    if (record[key]) {
+      const nested = messageRecords(record[key]);
+      if (nested.length) return nested;
+    }
+  }
+  return [record as EvolutionMessage];
 }

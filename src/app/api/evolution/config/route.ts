@@ -129,6 +129,50 @@ function evolutionRecords(value: unknown): unknown[] {
   return [];
 }
 
+async function pagedEvolutionRecords(
+  config: ConfigRow,
+  path: string,
+  maxPages = 10,
+) {
+  const records: unknown[] = [];
+  const seen = new Set<string>();
+  const pageSize = 1000;
+  for (let page = 0; page < maxPages; page += 1) {
+    const result = await evolution(config, path, {
+      method: 'POST',
+      body: JSON.stringify({
+        where: {},
+        take: pageSize,
+        skip: page * pageSize,
+        orderBy: {},
+      }),
+    });
+    const pageRecords = evolutionRecords(result);
+    let added = 0;
+    for (const item of pageRecords) {
+      const record =
+        item && typeof item === 'object'
+          ? (item as Record<string, unknown>)
+          : null;
+      const key = record
+        ? String(
+            record.id ||
+              record.number ||
+              record.remoteJid ||
+              record.remoteJidAlt ||
+              JSON.stringify(record),
+          )
+        : String(item);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      records.push(item);
+      added += 1;
+    }
+    if (pageRecords.length < pageSize || added === 0) break;
+  }
+  return records;
+}
+
 export async function GET() {
   try {
     const { supabase, accountId } = await context();
@@ -336,6 +380,7 @@ export async function POST(request: Request) {
       let imported = 0;
       let skipped = 0;
       let contactsUpdated = 0;
+      let evolutionContactsFound = 0;
       let importWarning: string | null = null;
       try {
         try {
@@ -363,19 +408,10 @@ export async function POST(request: Request) {
           // History/contact import below must still continue in that case.
         }
 
-        const contactResult = await evolution(
+        const evolutionContacts = (await pagedEvolutionRecords(
           config as ConfigRow,
           `/chat/findContacts/${instance}`,
-          {
-            method: 'POST',
-            body: JSON.stringify({
-              where: {},
-              take: 1000,
-              skip: 0,
-              orderBy: {},
-            }),
-          }
-        );
+        )) as EvolutionIdentity[];
         type EvolutionIdentity = {
           id?: string;
           number?: string;
@@ -398,28 +434,16 @@ export async function POST(request: Request) {
             };
           };
         };
-        const evolutionContacts = evolutionRecords(
-          contactResult,
-        ) as EvolutionIdentity[];
         try {
-          const chatResult = await evolution(
+          const chats = (await pagedEvolutionRecords(
             config as ConfigRow,
             `/chat/findChats/${instance}`,
-            {
-              method: 'POST',
-              body: JSON.stringify({
-                where: {},
-                take: 1000,
-                skip: 0,
-                orderBy: {},
-              }),
-            },
-          );
-          const chats = evolutionRecords(chatResult) as EvolutionIdentity[];
+          )) as EvolutionIdentity[];
           evolutionContacts.push(...chats);
         } catch {
           // Some Evolution releases do not expose findChats.
         }
+        evolutionContactsFound = evolutionContacts.length;
         const { data: localContacts } = await supabase
           .from('contacts')
           .select('id, phone_normalized, avatar_url')
@@ -706,6 +730,7 @@ export async function POST(request: Request) {
         imported,
         skipped,
         contacts_updated: contactsUpdated,
+        evolution_contacts_found: evolutionContactsFound,
         import_warning: importWarning,
       });
     }

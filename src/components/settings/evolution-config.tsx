@@ -56,9 +56,9 @@ export function EvolutionConfig() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
-        signal: AbortSignal.timeout(actionName === "sync" ? 45000 : 20000),
+        signal: AbortSignal.timeout(actionName === "sync" ? 120000 : 20000),
       });
-      const data = await response.json() as { error?: string; base64?: string | null; code?: string | null; imported?: number; contacts_updated?: number; import_warning?: string | null };
+      const data = await response.json() as { error?: string; base64?: string | null; code?: string | null; imported?: number; contacts_updated?: number; evolution_contacts_found?: number; import_warning?: string | null };
       if (!response.ok) throw new Error(data.error || "A Evolution recusou a solicitação");
       if (actionName === "save") { setConfigured(true); setApiKey(""); toast.success("Configuração da Evolution salva"); }
       if (actionName === "connect") {
@@ -71,7 +71,7 @@ export function EvolutionConfig() {
         if (data.import_warning) {
           toast.warning(`Webhook ativado, mas o histórico não foi importado: ${data.import_warning}`);
         } else {
-          toast.success(`${data.imported || 0} mensagem(ns) e ${data.contacts_updated || 0} nome(s) sincronizado(s).`);
+          toast.success(`${data.imported || 0} mensagem(ns), ${data.contacts_updated || 0} contato(s) atualizado(s) de ${data.evolution_contacts_found || 0} encontrado(s) na Evolution.`);
         }
       }
       await loadStatus(true);
