@@ -106,23 +106,23 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
   const totalUnread = useTotalUnread();
   const t = useTranslations('nav');
   const allNavItems: (NavItem & { adminOnly?: boolean })[] = [
-  { href: "/dashboard", label: t('dashboard'), icon: LayoutDashboard },
-  { href: "/pipelines", label: "Pipeline de Vendas", icon: GitBranch },
-  { href: "/inbox", label: t('inbox'), icon: MessageSquare },
-  { href: "/contacts", label: t('contacts'), icon: Users },
-  { href: "/lead-scoring", label: "Lead Scoring", icon: Flame },
-  { href: "/lead-journey", label: "Jornada do Lead", icon: Route },
-  { href: "/follow-ups", label: "Follow-ups", icon: Clock3 },
-  { href: "/lead-tracking", label: "Tracking de Leads", icon: Target, adminOnly: true },
-  { href: "/ai-agents", label: "Agentes IA", icon: Bot, adminOnly: true },
-  { href: "/automations", label: t('automations'), icon: Zap, adminOnly: true },
-  { href: "/daily-summary", label: "Relatórios", icon: ClipboardList },
+  { href: "/painel", label: t('dashboard'), icon: LayoutDashboard },
+  { href: "/pipeline-de-vendas", label: "Pipeline de Vendas", icon: GitBranch },
+  { href: "/caixa-de-entrada", label: t('inbox'), icon: MessageSquare },
+  { href: "/contatos", label: t('contacts'), icon: Users },
+  { href: "/pontuacao-de-leads", label: "Lead Scoring", icon: Flame },
+  { href: "/jornada-do-lead", label: "Jornada do Lead", icon: Route },
+  { href: "/acompanhamentos", label: "Follow-ups", icon: Clock3 },
+  { href: "/rastreamento-de-leads", label: "Tracking de Leads", icon: Target, adminOnly: true },
+  { href: "/agentes-de-ia", label: "Agentes IA", icon: Bot, adminOnly: true },
+  { href: "/automacoes", label: t('automations'), icon: Zap, adminOnly: true },
+  { href: "/relatorios", label: "Relatórios", icon: ClipboardList },
 ];
   const navItems = allNavItems.filter((item) => !item.adminOnly || accountRole === "owner" || accountRole === "admin");
 
 const bottomNavItems = [
-  ...(isMasterAdmin ? [{ href: "/master", label: "Painel Master", icon: Crown }] : []),
-  ...((accountRole === "owner" || accountRole === "admin") ? [{ href: "/settings", label: t('settings'), icon: Settings }] : []),
+  ...(isMasterAdmin ? [{ href: "/painel-master", label: "Painel Master", icon: Crown }] : []),
+  ...((accountRole === "owner" || accountRole === "admin") ? [{ href: "/configuracoes", label: t('settings'), icon: Settings }] : []),
 ];
   // Only surface the account-name strip when it actually carries
   // information. A solo user?'s personal account is named after them
@@ -192,7 +192,7 @@ const bottomNavItems = [
         {/* Logo row. On mobile we put a close button here; on desktop the
             close button is hidden since the sidebar is always-visible. */}
         <div className="flex h-14 shrink-0 items-center justify-between gap-2 border-b border-border px-4">
-          <Link href="/dashboard" className="flex items-center gap-2">
+          <Link href="/painel" className="flex items-center gap-2">
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
               <MessageSquare className="h-4 w-4" />
             </div>
@@ -216,10 +216,10 @@ const bottomNavItems = [
             {navItems.map((item) => {
               const isActive =
                 pathname === item.href ||
-                (item.href !== "/dashboard" && pathname.startsWith(item.href));
+                (item.href !== "/painel" && pathname.startsWith(item.href));
 
               const showUnreadDot =
-                item.href === "/inbox" && totalUnread > 0 && !isActive;
+                item.href === "/caixa-de-entrada" && totalUnread > 0 && !isActive;
 
               return (
                 <li key={item.href}>
@@ -353,7 +353,7 @@ const bottomNavItems = [
               <DropdownMenuItem
                 render={
                   <Link
-                    href="/settings?tab=profile"
+                    href="/configuracoes?tab=perfil"
                     onClick={onClose}
                     className="text-popover-foreground focus:bg-accent focus:text-accent-foreground"
                   />
@@ -365,7 +365,7 @@ const bottomNavItems = [
               <DropdownMenuItem
                 render={
                   <Link
-                    href="/settings?tab=whatsapp"
+                    href="/configuracoes?tab=whatsapp"
                     onClick={onClose}
                     className="text-popover-foreground focus:bg-accent focus:text-accent-foreground"
                   />

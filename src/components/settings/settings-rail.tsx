@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import {
   RAIL_GROUPS,
+  PUBLIC_SECTION_SLUG,
   SECTION_META,
   SETTINGS_SECTIONS,
   type SettingsSection,
@@ -24,11 +25,9 @@ const RAIL_DESKTOP_MIN_PX = 1024;
  */
 export function SettingsRail({
   active,
-  onSelect,
   hints,
 }: {
   active: SettingsSection;
-  onSelect: (section: SettingsSection) => void;
   hints?: Partial<Record<SettingsSection, ReactNode>>;
 }) {
   const activeRef = useRef<HTMLAnchorElement>(null);
@@ -76,7 +75,7 @@ export function SettingsRail({
                 <Link
                   key={s}
                   ref={isActive ? activeRef : undefined}
-                  href={`/settings?tab=${s}`}
+                  href={`/configuracoes?tab=${PUBLIC_SECTION_SLUG[s]}`}
                   aria-current={isActive ? 'page' : undefined}
                   className={cn(
                     'flex shrink-0 items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm font-medium whitespace-nowrap transition-colors',

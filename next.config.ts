@@ -63,7 +63,42 @@ const SECURITY_HEADERS = [
   },
 ] as const;
 
+const LOCALIZED_ROUTES = [
+  { internal: "/dashboard", public: "/painel" },
+  { internal: "/pipelines", public: "/pipeline-de-vendas" },
+  { internal: "/inbox", public: "/caixa-de-entrada" },
+  { internal: "/contacts", public: "/contatos" },
+  { internal: "/lead-scoring", public: "/pontuacao-de-leads" },
+  { internal: "/lead-journey", public: "/jornada-do-lead" },
+  { internal: "/follow-ups", public: "/acompanhamentos" },
+  { internal: "/lead-tracking", public: "/rastreamento-de-leads" },
+  { internal: "/ai-agents", public: "/agentes-de-ia" },
+  { internal: "/automations", public: "/automacoes" },
+  { internal: "/daily-summary", public: "/relatorios" },
+  { internal: "/master", public: "/painel-master" },
+  { internal: "/settings", public: "/configuracoes" },
+  { internal: "/broadcasts", public: "/disparos" },
+  { internal: "/flows", public: "/fluxos" },
+  { internal: "/integrations", public: "/integracoes" },
+  { internal: "/whatsapp-business", public: "/whatsapp" },
+] as const;
+
 const nextConfig: NextConfig = {
+  async redirects() {
+    return LOCALIZED_ROUTES.map((route) => ({
+      source: `${route.internal}/:path*`,
+      destination: `${route.public}/:path*`,
+      permanent: false,
+    }));
+  },
+
+  async rewrites() {
+    return LOCALIZED_ROUTES.map((route) => ({
+      source: `${route.public}/:path*`,
+      destination: `${route.internal}/:path*`,
+    }));
+  },
+
   /**
    * Cache-Control policy.
    *

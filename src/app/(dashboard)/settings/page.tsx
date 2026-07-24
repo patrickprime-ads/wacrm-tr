@@ -20,6 +20,7 @@ import { FieldsAndTagsPanel } from '@/components/settings/fields-and-tags-panel'
 import { DealsSettings } from '@/components/settings/deals-settings';
 import { MembersTab } from '@/components/settings/members-tab';
 import {
+  PUBLIC_SECTION_SLUG,
   resolveSection,
   type SettingsSection,
 } from '@/components/settings/settings-sections';
@@ -38,8 +39,8 @@ export default function SettingsPage() {
 
   const go = (next: SettingsSection) => {
     const params = new URLSearchParams(searchParams.toString());
-    params.set('tab', next);
-    router.replace(`/settings?${params.toString()}`, { scroll: false });
+    params.set('tab', PUBLIC_SECTION_SLUG[next]);
+    router.replace(`/configuracoes?${params.toString()}`, { scroll: false });
   };
 
   // Cheap, fetch-free rail hints. The Overview landing carries the
@@ -82,7 +83,7 @@ export default function SettingsPage() {
       </div>
 
       <div className="mt-6 grid gap-6 lg:grid-cols-[236px_minmax(0,1fr)] lg:items-start">
-        <SettingsRail active={section} onSelect={go} hints={hints} />
+        <SettingsRail active={section} hints={hints} />
         <div className="min-w-0">{panel[section]}</div>
       </div>
     </div>

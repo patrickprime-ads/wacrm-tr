@@ -43,6 +43,22 @@ export type SettingsSection = (typeof SETTINGS_SECTIONS)[number];
 
 export const DEFAULT_SECTION: SettingsSection = 'overview';
 
+export const PUBLIC_SECTION_SLUG: Record<SettingsSection, string> = {
+  overview: 'visao-geral',
+  profile: 'perfil',
+  security: 'seguranca',
+  appearance: 'aparencia',
+  whatsapp: 'whatsapp',
+  integrations: 'integracoes',
+  broadcasts: 'disparos',
+  products: 'produtos',
+  flows: 'fluxos',
+  templates: 'modelos',
+  fields: 'campos-e-tags',
+  deals: 'vendas-e-valores',
+  members: 'equipe',
+};
+
 /** Rail grouping. `adminOnly` items are hidden for non-admins. */
 export interface SectionMeta {
   id: SettingsSection;
@@ -86,5 +102,9 @@ function isSection(value: string | null): value is SettingsSection {
 export function resolveSection(raw: string | null): SettingsSection {
   if (raw === 'tags' || raw === 'custom-fields') return 'fields';
   if (isSection(raw)) return raw;
+  const localized = SETTINGS_SECTIONS.find(
+    (section) => PUBLIC_SECTION_SLUG[section] === raw,
+  );
+  if (localized) return localized;
   return DEFAULT_SECTION;
 }

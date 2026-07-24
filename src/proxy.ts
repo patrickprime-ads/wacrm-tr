@@ -1,7 +1,7 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request })
 
   const supabase = createServerClient(
@@ -13,7 +13,7 @@ export async function middleware(request: NextRequest) {
           return request.cookies.getAll()
         },
         setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value, options }) => request.cookies.set(name, value))
+          cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value))
           supabaseResponse = NextResponse.next({ request })
           cookiesToSet.forEach(({ name, value, options }) =>
             supabaseResponse.cookies.set(name, value, options)
@@ -46,14 +46,21 @@ export async function middleware(request: NextRequest) {
       url.pathname = `/join/${encodeURIComponent(inviteToken)}`
       url.search = ''
     } else {
-      url.pathname = '/dashboard'
+      url.pathname = '/painel'
       url.search = ''
     }
     return NextResponse.redirect(url)
   }
 
   // Protected pages - redirect to login if not authenticated
-  const protectedPaths = ['/dashboard', '/inbox', '/contacts', '/pipelines', '/broadcasts', '/automations', '/settings']
+  const protectedPaths = [
+    '/dashboard', '/inbox', '/contacts', '/pipelines', '/broadcasts',
+    '/automations', '/settings', '/painel', '/pipeline-de-vendas',
+    '/caixa-de-entrada', '/contatos', '/pontuacao-de-leads',
+    '/jornada-do-lead', '/acompanhamentos', '/rastreamento-de-leads',
+    '/agentes-de-ia', '/automacoes', '/relatorios', '/painel-master',
+    '/configuracoes', '/disparos', '/fluxos', '/integracoes', '/whatsapp',
+  ]
   if (!user && protectedPaths.some(path => request.nextUrl.pathname.startsWith(path))) {
     const url = request.nextUrl.clone()
     url.pathname = '/login'
