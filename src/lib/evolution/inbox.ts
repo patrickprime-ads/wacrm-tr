@@ -150,7 +150,6 @@ export async function importEvolutionMessage(accountId: string, data: EvolutionM
         .from("contacts")
         .update({
           phone: realPhone,
-          phone_normalized: realPhone,
           ...(inboundName ? { name: inboundName } : {}),
         })
         .eq("id", lidContact.id);

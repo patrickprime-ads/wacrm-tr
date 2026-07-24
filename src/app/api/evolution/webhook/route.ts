@@ -123,7 +123,7 @@ export async function POST(request: Request) {
                 : {}),
               ...(avatar ? { avatar_url: avatar } : {}),
               ...(replaceInternalId
-                ? { phone, phone_normalized: phone }
+                ? { phone }
                 : {}),
             })
             .eq("id", match.id);

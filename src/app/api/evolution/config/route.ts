@@ -540,7 +540,7 @@ export async function POST(request: Request) {
                 ...(validName ? { name: validName } : {}),
                 ...(avatarUrl ? { avatar_url: avatarUrl } : {}),
                 ...(replaceInternalId
-                  ? { phone, phone_normalized: phone }
+                  ? { phone }
                   : {}),
               })
               .eq('id', match.id)
@@ -588,6 +588,112 @@ export async function POST(request: Request) {
           // Some older Evolution versions ignore `page`. Avoid importing
           // the same first page repeatedly, and stop normally at the end.
           if (newRecordsOnPage === 0 || records.length < pageSize) break;
+        }
+
+        // Message history can resolve an old @lid contact to its real phone.
+        // Run a second enrichment pass afterwards, otherwise the first pass
+        // cannot match that newly repaired phone to findContacts/findChats.
+        const { data: repairedContacts } = await supabase
+          .from('contacts')
+          .select('id, name, phone_normalized, avatar_url')
+          .eq('account_id', accountId);
+        const identitiesByNumber = new Map<string, EvolutionIdentity>();
+        for (const identity of evolutionContacts) {
+          const candidates = [
+            identity.number,
+            identity.remoteJid,
+            identity.remoteJidAlt,
+            identity.id,
+            identity.lastMessage?.key?.remoteJid,
+            identity.lastMessage?.key?.remoteJidAlt,
+          ];
+          for (const candidate of candidates) {
+            const digits = String(candidate || '')
+              .split('@')[0]
+              .replace(/\D/g, '');
+            if (digits) identitiesByNumber.set(digits, identity);
+          }
+        }
+
+        const fetchedPictures = new Map<string, string>();
+        const phonesNeedingPicture = (repairedContacts ?? [])
+          .filter((contact) => {
+            const phone = contact.phone_normalized || '';
+            const identity = identitiesByNumber.get(phone);
+            return (
+              !contact.avatar_url &&
+              !identity?.profilePictureUrl &&
+              !identity?.profilePicUrl &&
+              phone.startsWith('55') &&
+              (phone.length === 12 || phone.length === 13)
+            );
+          })
+          .map((contact) => contact.phone_normalized)
+          .slice(0, 60);
+        for (let index = 0; index < phonesNeedingPicture.length; index += 8) {
+          const batch = phonesNeedingPicture.slice(index, index + 8);
+          await Promise.all(
+            batch.map(async (phone) => {
+              try {
+                const picture = await evolution(
+                  config as ConfigRow,
+                  `/chat/fetchProfilePictureUrl/${instance}`,
+                  {
+                    method: 'POST',
+                    body: JSON.stringify({ number: phone }),
+                  },
+                );
+                const url = profilePictureUrlFrom(picture);
+                if (url) fetchedPictures.set(phone, url);
+              } catch {
+                // WhatsApp privacy or an older Evolution release may deny it.
+              }
+            }),
+          );
+        }
+
+        for (const contact of repairedContacts ?? []) {
+          const phone = contact.phone_normalized || '';
+          const identity = identitiesByNumber.get(phone);
+          const candidateName = (
+            identity?.pushName ||
+            identity?.name ||
+            identity?.contactName ||
+            identity?.savedName ||
+            identity?.verifiedName ||
+            identity?.notify ||
+            identity?.businessName ||
+            identity?.lastMessage?.pushName
+          )?.trim();
+          const genericName =
+            !contact.name?.trim() ||
+            ['contato do whatsapp', 'desconhecido', 'sem nome', 'você', 'voce', 'you'].includes(
+              contact.name.trim().toLowerCase(),
+            ) ||
+            /^\d{14,}$/.test(contact.name.replace(/\D/g, ''));
+          const validName =
+            candidateName &&
+            !['você', 'voce', 'you'].includes(candidateName.toLowerCase())
+              ? candidateName
+              : null;
+          const avatarUrl =
+            identity?.profilePictureUrl ||
+            identity?.profilePicUrl ||
+            fetchedPictures.get(phone) ||
+            null;
+          if ((genericName && validName) || (!contact.avatar_url && avatarUrl)) {
+            const { error: repairError } = await supabase
+              .from('contacts')
+              .update({
+                ...(genericName && validName ? { name: validName } : {}),
+                ...(!contact.avatar_url && avatarUrl
+                  ? { avatar_url: avatarUrl }
+                  : {}),
+              })
+              .eq('id', contact.id)
+              .eq('account_id', accountId);
+            if (!repairError) contactsUpdated += 1;
+          }
         }
       } catch (error) {
         importWarning =
