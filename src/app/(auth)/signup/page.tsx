@@ -47,7 +47,7 @@ function SignupPageInner() {
     setError(null);
 
     if (password !== confirmPassword) {
-      setError("Passwords do not match");
+      setError("As senhas não coincidem");
       return;
     }
 
@@ -90,7 +90,7 @@ function SignupPageInner() {
               Verifique seu e-mail
             </CardTitle>
             <CardDescription className="text-muted-foreground">
-              Enviamos um link de confirma??o para{" "}
+              Enviamos um link de confirmação para{" "}
               <span className="text-foreground">{email}</span>. Verifique sua caixa de entrada e clique no link para confirmar sua conta.
             </CardDescription>
           </CardHeader>
@@ -131,8 +131,8 @@ function SignupPageInner() {
           </CardTitle>
           <CardDescription className="text-muted-foreground">
             {inviteToken
-              ? "Verify your email, then accept the invitation to join your team."
-              : "Get started with CRM para WhatsApp"}
+              ? "Confirme seu e-mail e aceite o convite para entrar na equipe."
+              : "Comece agora com seu CRM para WhatsApp"}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -150,7 +150,7 @@ function SignupPageInner() {
               <Input
                 id="fullName"
                 type="text"
-                placeholder="John Doe"
+                placeholder="Seu nome completo"
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
                 required
@@ -165,7 +165,7 @@ function SignupPageInner() {
               <Input
                 id="email"
                 type="email"
-                placeholder="you@example.com"
+                placeholder="seuemail@exemplo.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
@@ -208,7 +208,7 @@ function SignupPageInner() {
               disabled={loading}
               className="mt-2 h-10 w-full bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
             >
-              {loading ? "Creating account..." : "Criar conta"}
+              {loading ? "Criando conta..." : "Criar conta"}
             </Button>
           </form>
 

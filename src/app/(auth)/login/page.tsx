@@ -86,7 +86,7 @@ function LoginPageInner() {
           </CardTitle>
           <CardDescription className="text-muted-foreground">
             {inviteToken
-              ? "Entre e levaremos voc? ao convite."
+              ? "Entre e levaremos você ao convite."
               : "Entre na sua conta"}
           </CardDescription>
         </CardHeader>
@@ -105,7 +105,7 @@ function LoginPageInner() {
               <Input
                 id="email"
                 type="email"
-                placeholder="you@example.com"
+                placeholder="seuemail@exemplo.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
