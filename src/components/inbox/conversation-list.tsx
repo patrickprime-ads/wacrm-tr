@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
+import { whatsappContactDisplayName } from "@/lib/whatsapp/contact-display";
 import type { Conversation, ConversationStatus } from "@/types";
 import { Search, ChevronDown, UserRound } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
@@ -230,6 +231,10 @@ function ConversationItem({
   onSelect,
 }: ConversationItemProps) {
   const contact = conversation.contact;
+  const resolvedDisplayName = whatsappContactDisplayName(
+    contact?.name,
+    contact?.phone,
+  );
   const savedName = contact?.name?.trim();
   const looksLikeInternalId = (value?: string | null) =>
     Boolean(value && /^\d{14,}$/.test(value.replace(/\D/g, "")));
@@ -241,7 +246,9 @@ function ConversationItem({
       : contact?.phone && !looksLikeInternalId(contact.phone)
         ? contact.phone
         : "Contato do WhatsApp";
-  const initials = displayName.charAt(0).toUpperCase();
+  const finalDisplayName =
+    displayName === "Contato do WhatsApp" ? resolvedDisplayName : displayName;
+  const initials = finalDisplayName.charAt(0).toUpperCase();
 
   const handleClick = useCallback(() => {
     onSelect(conversation);
@@ -267,10 +274,10 @@ function ConversationItem({
         {contact?.avatar_url ? (
           <img
             src={contact.avatar_url}
-            alt={displayName}
+            alt={finalDisplayName}
             className="h-10 w-10 rounded-full object-cover"
           />
-        ) : displayName === "Contato do WhatsApp" ? (
+        ) : finalDisplayName === "Número não disponibilizado" ? (
           <UserRound className="h-4 w-4 text-muted-foreground" />
         ) : (
           initials
@@ -281,7 +288,7 @@ function ConversationItem({
       <div className="min-w-0 flex-1">
         <div className="flex items-center justify-between gap-2">
           <span className="truncate text-sm font-medium text-foreground">
-            {displayName}
+            {finalDisplayName}
           </span>
           <span className="shrink-0 text-[10px] text-muted-foreground">{timeAgo}</span>
         </div>

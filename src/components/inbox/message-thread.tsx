@@ -6,6 +6,10 @@ import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/hooks/use-auth';
 import { useCan } from '@/hooks/use-can';
 import { cn } from '@/lib/utils';
+import {
+  formatBrazilianPhone,
+  whatsappContactDisplayName,
+} from '@/lib/whatsapp/contact-display';
 import type {
   Conversation,
   Message,
@@ -1045,6 +1049,12 @@ export function MessageThread({
     savedName && !['você', 'you'].includes(savedName.toLowerCase())
       ? savedName
       : contact.phone;
+  const finalDisplayName = whatsappContactDisplayName(
+    displayName,
+    contact.phone
+  );
+  const displayPhone =
+    formatBrazilianPhone(contact.phone) || 'Número não disponibilizado';
   const messageGroups = groupMessagesByDate(messages);
   const currentStatus = STATUS_OPTIONS.find(
     (s) => s.value === conversation.status
@@ -1085,19 +1095,19 @@ export function MessageThread({
             {contact.avatar_url ? (
               <img
                 src={contact.avatar_url}
-                alt={displayName}
+                alt={finalDisplayName}
                 className="h-full w-full object-cover"
               />
             ) : (
-              displayName.charAt(0).toUpperCase()
+              finalDisplayName.charAt(0).toUpperCase()
             )}
           </div>
           <div className="min-w-0">
             <h2 className="text-foreground truncate text-sm font-semibold">
-              {displayName}
+              {finalDisplayName}
             </h2>
             <p className="text-muted-foreground truncate text-xs">
-              {contact.phone}
+              {displayPhone}
             </p>
             {contact.lead_source && (
               <span className="bg-primary/10 text-primary mt-0.5 inline-flex rounded-full px-1.5 py-0.5 text-[9px] font-medium">
