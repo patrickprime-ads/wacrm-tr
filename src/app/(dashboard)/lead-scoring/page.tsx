@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Flame, Save, Search, Settings2, Sparkles } from "lucide-react";
+import { Flame, Plus, Save, Search, Settings2, Sparkles, Trash2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import type { Contact } from "@/types";
@@ -11,6 +11,21 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 
 type ScoredLead = Contact & { score: number; reason: string };
+
+type CustomRule = {
+  id: string;
+  name: string;
+  condition:
+    | "existing_customer"
+    | "not_customer"
+    | "source"
+    | "classification"
+    | "response_time"
+    | "has_name"
+    | "no_name";
+  value: string;
+  points: number;
+};
 
 type ScoringRules = {
   frio: number;
@@ -27,6 +42,7 @@ type ScoringRules = {
   quente_label: string;
   vendido_label: string;
   perdido_label: string;
+  custom_rules: CustomRule[];
 };
 
 type ScoreKey =
@@ -62,7 +78,27 @@ const DEFAULT_RULES: ScoringRules = {
   quente_label: "Quente",
   vendido_label: "Vendido",
   perdido_label: "Perdido",
+  custom_rules: [],
 };
+
+function ruleMatches(contact: Contact, rule: CustomRule) {
+  if (rule.condition === "existing_customer") {
+    return contact.conversion_status === "customer" || contact.lead_temperature === "vendido";
+  }
+  if (rule.condition === "not_customer") {
+    return contact.conversion_status !== "customer" && contact.lead_temperature !== "vendido";
+  }
+  if (rule.condition === "source") return contact.lead_source === rule.value;
+  if (rule.condition === "classification") return contact.lead_temperature === rule.value;
+  if (rule.condition === "response_time") return contact.response_time_bucket === rule.value;
+  if (rule.condition === "has_name") {
+    return Boolean(contact.name?.trim() && !/^\d+$/.test(contact.name.trim()));
+  }
+  if (rule.condition === "no_name") {
+    return !contact.name?.trim() || /^\d+$/.test(contact.name.trim());
+  }
+  return false;
+}
 
 export default function LeadScoringPage() {
   const { accountId, canEditSettings } = useAuth();
@@ -87,7 +123,15 @@ export default function LeadScoringPage() {
       const stored = settingsResult.data?.scoring_rules as
         | Partial<ScoringRules>
         | undefined;
-      if (stored) setRules({ ...DEFAULT_RULES, ...stored });
+      if (stored) {
+        setRules({
+          ...DEFAULT_RULES,
+          ...stored,
+          custom_rules: Array.isArray(stored.custom_rules)
+            ? stored.custom_rules
+            : [],
+        });
+      }
     });
   }, [accountId]);
 
@@ -116,8 +160,14 @@ export default function LeadScoringPage() {
         let score: number = rules[classification];
         if (contact.lead_source === "meta_ads" || contact.lead_source === "google_ads") score += rules.paid_source_bonus;
         if (contact.response_time_bucket === "Até 5 min") score += rules.fast_response_bonus;
-        score = Math.min(100, score);
-        const reason = rules[`${classification}_label` as LabelKey];
+        const matchedRules = rules.custom_rules.filter((rule) =>
+          ruleMatches(contact, rule),
+        );
+        score += matchedRules.reduce((sum, rule) => sum + rule.points, 0);
+        score = Math.max(0, Math.min(100, score));
+        const reason =
+          matchedRules.map((rule) => rule.name).filter(Boolean).join(" · ") ||
+          rules[`${classification}_label` as LabelKey];
         return { ...contact, score, reason };
       })
       .filter((lead) => `${lead.name} ${lead.phone}`.toLowerCase().includes(query.toLowerCase()))
@@ -142,36 +192,157 @@ export default function LeadScoringPage() {
       {showSettings && (
         <section className="rounded-xl border bg-card p-4">
           <div className="mb-5">
-            <h2 className="font-semibold">Nomes das classificações</h2>
-            <p className="text-xs text-muted-foreground">
-              Personalize como cada nível aparece para sua equipe.
-            </p>
-            <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {([
-                ["frio_label", "Nome para lead frio"],
-                ["curioso_label", "Nome para lead curioso"],
-                ["interessado_label", "Nome para lead interessado"],
-                ["quente_label", "Nome para lead quente"],
-                ["vendido_label", "Nome para venda concluída"],
-                ["perdido_label", "Nome para venda perdida"],
-              ] as Array<[LabelKey, string]>).map(([key, label]) => (
-                <div key={key}>
-                  <Label>{label}</Label>
-                  <Input
-                    className="mt-1"
-                    value={rules[key]}
-                    onChange={(event) =>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h2 className="font-semibold">Regras personalizadas</h2>
+                <p className="text-xs text-muted-foreground">
+                  Dê um nome, escolha quando aplicar e informe pontos positivos ou negativos.
+                </p>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() =>
+                  setRules((current) => ({
+                    ...current,
+                    custom_rules: [
+                      ...current.custom_rules,
+                      {
+                        id: crypto.randomUUID(),
+                        name: "",
+                        condition: "existing_customer",
+                        value: "",
+                        points: -20,
+                      },
+                    ],
+                  }))
+                }
+              >
+                <Plus className="h-4 w-4" />
+                Adicionar regra
+              </Button>
+            </div>
+            <div className="mt-3 space-y-3">
+              {rules.custom_rules.map((rule) => (
+                <div
+                  key={rule.id}
+                  className="grid gap-3 rounded-xl border bg-background/50 p-3 lg:grid-cols-[1.4fr_1fr_1fr_120px_40px] lg:items-end"
+                >
+                  <div>
+                    <Label>Nome da regra</Label>
+                    <Input
+                      className="mt-1"
+                      value={rule.name}
+                      placeholder="Ex.: Já é cliente"
+                      onChange={(event) =>
+                        setRules((current) => ({
+                          ...current,
+                          custom_rules: current.custom_rules.map((item) =>
+                            item.id === rule.id
+                              ? { ...item, name: event.target.value }
+                              : item,
+                          ),
+                        }))
+                      }
+                    />
+                  </div>
+                  <div>
+                    <Label>Quando</Label>
+                    <select
+                      className="mt-1 h-10 w-full rounded-lg border bg-muted px-3 text-sm"
+                      value={rule.condition}
+                      onChange={(event) =>
+                        setRules((current) => ({
+                          ...current,
+                          custom_rules: current.custom_rules.map((item) =>
+                            item.id === rule.id
+                              ? {
+                                  ...item,
+                                  condition: event.target.value as CustomRule["condition"],
+                                  value: "",
+                                }
+                              : item,
+                          ),
+                        }))
+                      }
+                    >
+                      <option value="existing_customer">Já é cliente</option>
+                      <option value="not_customer">Ainda não é cliente</option>
+                      <option value="source">Origem é</option>
+                      <option value="classification">Classificação é</option>
+                      <option value="response_time">Tempo de resposta é</option>
+                      <option value="has_name">Possui nome identificado</option>
+                      <option value="no_name">Não possui nome identificado</option>
+                    </select>
+                  </div>
+                  <RuleValue
+                    rule={rule}
+                    onChange={(value) =>
                       setRules((current) => ({
                         ...current,
-                        [key]: event.target.value,
+                        custom_rules: current.custom_rules.map((item) =>
+                          item.id === rule.id ? { ...item, value } : item,
+                        ),
                       }))
                     }
                   />
+                  <div>
+                    <Label>Pontos</Label>
+                    <Input
+                      className="mt-1"
+                      type="number"
+                      min={-100}
+                      max={100}
+                      value={rule.points}
+                      onChange={(event) =>
+                        setRules((current) => ({
+                          ...current,
+                          custom_rules: current.custom_rules.map((item) =>
+                            item.id === rule.id
+                              ? {
+                                  ...item,
+                                  points: Math.max(
+                                    -100,
+                                    Math.min(100, Number(event.target.value)),
+                                  ),
+                                }
+                              : item,
+                          ),
+                        }))
+                      }
+                    />
+                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="text-red-400"
+                    onClick={() =>
+                      setRules((current) => ({
+                        ...current,
+                        custom_rules: current.custom_rules.filter(
+                          (item) => item.id !== rule.id,
+                        ),
+                      }))
+                    }
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
                 </div>
               ))}
+              {!rules.custom_rules.length && (
+                <div className="rounded-xl border border-dashed p-6 text-center text-sm text-muted-foreground">
+                  Nenhuma regra personalizada. Clique em Adicionar regra.
+                </div>
+              )}
             </div>
           </div>
-          <h2 className="mb-3 font-semibold">Pontos de cada regra</h2>
+          <div className="mb-5">
+            <h2 className="font-semibold">Pontuação inicial por classificação</h2>
+            <p className="text-xs text-muted-foreground">
+              Estes são os pontos de partida antes das regras personalizadas.
+            </p>
+          </div>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             {([
               ["frio", "Lead frio"],
@@ -237,4 +408,71 @@ export default function LeadScoringPage() {
 
 function ScoreCard({ label, value }: { label: string; value: number }) {
   return <div className="rounded-xl border bg-card p-4"><span className="text-xs text-muted-foreground">{label}</span><strong className="mt-2 block text-2xl">{value}</strong></div>;
+}
+
+function RuleValue({
+  rule,
+  onChange,
+}: {
+  rule: CustomRule;
+  onChange: (value: string) => void;
+}) {
+  const options =
+    rule.condition === "source"
+      ? [
+          ["meta_ads", "Meta"],
+          ["google_ads", "Google"],
+          ["whatsapp", "WhatsApp"],
+          ["referral", "Indicação"],
+          ["presencial", "Presencial"],
+          ["active_base", "Base ativa"],
+          ["phone", "Ligação"],
+        ]
+      : rule.condition === "classification"
+        ? [
+            ["frio", "Frio"],
+            ["curioso", "Curioso"],
+            ["interessado", "Interessado"],
+            ["quente", "Quente"],
+            ["vendido", "Vendido"],
+            ["perdido", "Perdido"],
+          ]
+        : rule.condition === "response_time"
+          ? [
+              ["Até 5 min", "Até 5 min"],
+              ["5–15 min", "5–15 min"],
+              ["15–30 min", "15–30 min"],
+              ["30–60 min", "30–60 min"],
+              ["Acima de 1 hora", "Acima de 1 hora"],
+            ]
+          : null;
+
+  if (!options) {
+    return (
+      <div>
+        <Label>Valor</Label>
+        <div className="mt-1 flex h-10 items-center rounded-lg border bg-muted px-3 text-xs text-muted-foreground">
+          Automático
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <Label>Valor</Label>
+      <select
+        className="mt-1 h-10 w-full rounded-lg border bg-muted px-3 text-sm"
+        value={rule.value}
+        onChange={(event) => onChange(event.target.value)}
+      >
+        <option value="">Selecione...</option>
+        {options.map(([value, label]) => (
+          <option key={value} value={value}>
+            {label}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
 }

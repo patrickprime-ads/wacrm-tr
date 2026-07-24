@@ -28,6 +28,7 @@ interface PipelineBoardProps {
   onDealMoved: (dealId: string, newStageId: string) => void;
   onAddDeal: (stageId: string) => void;
   onEditDeal: (deal: Deal) => void;
+  onHistoryDeal: (deal: Deal) => void;
 }
 
 export function PipelineBoard({
@@ -36,6 +37,7 @@ export function PipelineBoard({
   onDealMoved,
   onAddDeal,
   onEditDeal,
+  onHistoryDeal,
 }: PipelineBoardProps) {
   const { defaultCurrency } = useAuth();
   const [activeDealId, setActiveDealId] = useState<string | null>(null);
@@ -119,6 +121,7 @@ export function PipelineBoard({
               currency={defaultCurrency}
               onAddDeal={onAddDeal}
               onEditDeal={onEditDeal}
+              onHistoryDeal={onHistoryDeal}
             />
           );
         })}
@@ -193,6 +196,7 @@ function StageColumn({
   currency,
   onAddDeal,
   onEditDeal,
+  onHistoryDeal,
 }: {
   stage: PipelineStage;
   deals: Deal[];
@@ -200,6 +204,7 @@ function StageColumn({
   currency: string;
   onAddDeal: (stageId: string) => void;
   onEditDeal: (deal: Deal) => void;
+  onHistoryDeal: (deal: Deal) => void;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: stage.id });
 
@@ -247,6 +252,7 @@ function StageColumn({
               deal={deal}
               stage={stage}
               onEdit={onEditDeal}
+              onHistory={onHistoryDeal}
             />
           ))
         )}
@@ -269,10 +275,12 @@ function DraggableDealCard({
   deal,
   stage,
   onEdit,
+  onHistory,
 }: {
   deal: Deal;
   stage: PipelineStage;
   onEdit: (deal: Deal) => void;
+  onHistory: (deal: Deal) => void;
 }) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: deal.id,
@@ -285,7 +293,7 @@ function DraggableDealCard({
       {...attributes}
       style={{ opacity: isDragging ? 0.3 : 1, touchAction: "none" }}
     >
-      <DealCard deal={deal} stage={stage} onEdit={onEdit} />
+      <DealCard deal={deal} stage={stage} onEdit={onEdit} onHistory={onHistory} />
     </div>
   );
 }

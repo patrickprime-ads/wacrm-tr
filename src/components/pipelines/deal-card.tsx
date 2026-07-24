@@ -1,13 +1,14 @@
 "use client";
 
 import type { Deal, PipelineStage } from "@/types";
-import { Calendar, Check, GripVertical, Sparkles, X } from "lucide-react";
+import { Calendar, Check, Clock3, GripVertical, Sparkles, X } from "lucide-react";
 import { formatCurrency } from "@/lib/currency";
 
 interface DealCardProps {
   deal: Deal;
   stage: PipelineStage | null;
   onEdit: (deal: Deal) => void;
+  onHistory?: (deal: Deal) => void;
   isOverlay?: boolean;
 }
 
@@ -54,7 +55,7 @@ function nextAction(deal: Deal) {
   return "Descobrir interesse e produto ideal";
 }
 
-export function DealCard({ deal, stage, onEdit, isOverlay }: DealCardProps) {
+export function DealCard({ deal, stage, onEdit, onHistory, isOverlay }: DealCardProps) {
   const savedContactName = deal.contact?.name?.trim();
   const contactLabel =
     savedContactName &&
@@ -65,14 +66,21 @@ export function DealCard({ deal, stage, onEdit, isOverlay }: DealCardProps) {
   const leadTag = leadLabels[deal.contact?.lead_temperature ?? "curioso"];
 
   return (
-    <button
-      type="button"
+    <div
+      role="button"
+      tabIndex={0}
       onClick={(e) => {
         // `onClick` still fires after a non-drag tap because the PointerSensor
         // requires 5px movement before it counts as a drag.
         if (isOverlay) return;
         e.stopPropagation();
         onEdit(deal);
+      }}
+      onKeyDown={(event) => {
+        if (!isOverlay && (event.key === "Enter" || event.key === " ")) {
+          event.preventDefault();
+          onEdit(deal);
+        }
       }}
       className={`group relative w-full cursor-grab rounded-xl border border-border/70 bg-card-2/80 py-3 pl-4 pr-3 text-left shadow-sm transition-all active:cursor-grabbing ${
         isOverlay
@@ -170,6 +178,19 @@ export function DealCard({ deal, stage, onEdit, isOverlay }: DealCardProps) {
           <span className="max-w-28 truncate">{assigneeLabel}</span>
         </div>
       )}
-    </button>
+      {onHistory && !isOverlay && (
+        <button
+          type="button"
+          onClick={(event) => {
+            event.stopPropagation();
+            onHistory(deal);
+          }}
+          className="mt-3 flex items-center gap-1 rounded-lg border px-2 py-1 text-[10px] font-semibold text-muted-foreground hover:border-primary/40 hover:text-primary"
+        >
+          <Clock3 className="h-3 w-3" />
+          Histórico
+        </button>
+      )}
+    </div>
   );
 }

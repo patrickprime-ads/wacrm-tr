@@ -6,6 +6,7 @@ import type { Pipeline, PipelineStage, Deal } from '@/types';
 import { PipelineBoard } from '@/components/pipelines/pipeline-board';
 import { PipelineSettings } from '@/components/pipelines/pipeline-settings';
 import { DealForm } from '@/components/pipelines/deal-form';
+import { DealHistoryDialog } from '@/components/pipelines/deal-history-dialog';
 import { PipelineAnalytics } from '@/components/pipelines/pipeline-analytics';
 import { Button } from '@/components/ui/button';
 import {
@@ -77,6 +78,7 @@ export default function PipelinesPage() {
   const [editingDeal, setEditingDeal] = useState<Deal | null>(null);
   const [defaultStageId, setDefaultStageId] = useState<string>('');
   const [defaultContactId, setDefaultContactId] = useState<string>('');
+  const [historyDeal, setHistoryDeal] = useState<Deal | null>(null);
 
   // Guard against double-seeding (React StrictMode double-effect in dev).
   const seedAttempted = useRef(false);
@@ -192,7 +194,7 @@ export default function PipelinesPage() {
     if (!selectedPipelineId) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setStages([]);
-      // eslint-disable-next-line react-hooks/set-state-in-effect
+
       setDeals([]);
       return;
     }
@@ -261,13 +263,13 @@ export default function PipelinesPage() {
         return;
       }
 
-      const normalizedStage = targetStage?.name.toLocaleLowerCase('pt-BR') ?? '';
-      const automaticClassification =
-        /ganh|fechad|vendid/.test(normalizedStage)
-          ? 'vendido'
-          : /perdid/.test(normalizedStage)
-            ? 'perdido'
-            : null;
+      const normalizedStage =
+        targetStage?.name.toLocaleLowerCase('pt-BR') ?? '';
+      const automaticClassification = /ganh|fechad|vendid/.test(normalizedStage)
+        ? 'vendido'
+        : /perdid/.test(normalizedStage)
+          ? 'perdido'
+          : null;
       if (automaticClassification && movedDeal?.contact_id) {
         await supabase
           .from('contacts')
@@ -283,8 +285,8 @@ export default function PipelinesPage() {
                     lead_temperature: automaticClassification,
                   },
                 }
-              : item,
-          ),
+              : item
+          )
         );
       }
     },
@@ -543,6 +545,7 @@ export default function PipelinesPage() {
             onDealMoved={handleDealMoved}
             onAddDeal={handleAddDeal}
             onEditDeal={handleEditDeal}
+            onHistoryDeal={setHistoryDeal}
           />
         </>
       )}
@@ -616,6 +619,13 @@ export default function PipelinesPage() {
         defaultStageId={defaultStageId}
         defaultContactId={defaultContactId}
         onSaved={refreshDeals}
+      />
+      <DealHistoryDialog
+        deal={historyDeal}
+        open={historyDeal !== null}
+        onOpenChange={(open) => {
+          if (!open) setHistoryDeal(null);
+        }}
       />
     </div>
   );
