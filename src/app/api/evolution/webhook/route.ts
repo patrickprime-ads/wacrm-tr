@@ -52,6 +52,8 @@ export async function POST(request: Request) {
       for (const contact of contacts) {
         const identityCandidates = [
           contact.number,
+          contact.phoneNumber,
+          contact.lid,
           contact.remoteJid,
           contact.remoteJidAlt,
           contact.id,
@@ -60,7 +62,7 @@ export async function POST(request: Request) {
           identityCandidates.find(
             (value) =>
               value.endsWith("@s.whatsapp.net") || value.endsWith("@c.us"),
-          ) || contact.number;
+          ) || contact.phoneNumber || contact.number;
         const lidIdentity = identityCandidates.find((value) =>
           value.endsWith("@lid"),
         );
@@ -147,6 +149,8 @@ export async function POST(request: Request) {
 type EvolutionContact = {
   id?: string;
   number?: string;
+  phoneNumber?: string;
+  lid?: string;
   remoteJid?: string;
   remoteJidAlt?: string;
   pushName?: string;

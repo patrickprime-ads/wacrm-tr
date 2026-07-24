@@ -6,8 +6,12 @@ export type EvolutionMessage = {
     id?: string;
     remoteJid?: string;
     remoteJidAlt?: string;
+    senderPn?: string;
+    senderLid?: string;
     fromMe?: boolean;
   };
+  senderPn?: string;
+  senderLid?: string;
   pushName?: string;
   messageType?: string;
   messageTimestamp?: number | string;
@@ -79,9 +83,18 @@ function adReferral(data: EvolutionMessage) {
 
 export async function importEvolutionMessage(accountId: string, data: EvolutionMessage) {
   const db = supabaseAdmin();
-  const jidCandidates = [data.key?.remoteJid, data.key?.remoteJidAlt].filter(
-    (value): value is string => Boolean(value),
-  );
+  const jidCandidates = [
+    data.key?.remoteJid,
+    data.key?.remoteJidAlt,
+    ...(!data.key?.fromMe
+      ? [
+          data.key?.senderPn,
+          data.senderPn,
+          data.key?.senderLid,
+          data.senderLid,
+        ]
+      : []),
+  ].filter((value): value is string => Boolean(value));
   const jid =
     jidCandidates.find(
       (value) =>

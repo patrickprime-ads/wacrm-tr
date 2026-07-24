@@ -118,6 +118,33 @@ function profilePictureUrlFrom(value: unknown): string | null {
   return null;
 }
 
+function profileNameFrom(value: unknown): string | null {
+  if (!value || typeof value !== 'object') return null;
+  const record = value as Record<string, unknown>;
+  for (const key of [
+    'pushName',
+    'name',
+    'displayName',
+    'verifiedName',
+    'businessName',
+    'shortName',
+  ]) {
+    const candidate = record[key];
+    if (
+      typeof candidate === 'string' &&
+      candidate.trim() &&
+      !['você', 'voce', 'you'].includes(candidate.trim().toLowerCase())
+    ) {
+      return candidate.trim();
+    }
+  }
+  for (const key of ['data', 'response', 'profile', 'result', 'verifiedName']) {
+    const nested = profileNameFrom(record[key]);
+    if (nested) return nested;
+  }
+  return null;
+}
+
 function evolutionRecords(value: unknown): unknown[] {
   if (Array.isArray(value)) return value;
   if (!value || typeof value !== 'object') return [];
@@ -415,6 +442,8 @@ export async function POST(request: Request) {
         type EvolutionIdentity = {
           id?: string;
           number?: string;
+          phoneNumber?: string;
+          lid?: string;
           remoteJid?: string;
           remoteJidAlt?: string;
           pushName?: string;
@@ -457,6 +486,8 @@ export async function POST(request: Request) {
         for (const evolutionContact of evolutionContacts) {
           const jidCandidates = [
             evolutionContact.number,
+            evolutionContact.phoneNumber,
+            evolutionContact.lid,
             evolutionContact.remoteJid,
             evolutionContact.remoteJidAlt,
             evolutionContact.id,
@@ -468,7 +499,7 @@ export async function POST(request: Request) {
               (value) =>
                 value.endsWith('@s.whatsapp.net') ||
                 value.endsWith('@c.us'),
-            ) || evolutionContact.number;
+            ) || evolutionContact.phoneNumber || evolutionContact.number;
           const lidJid = jidCandidates.find((value) => value.endsWith('@lid'));
           const phone = String(realJid || '')
             .split('@')[0]
@@ -625,6 +656,8 @@ export async function POST(request: Request) {
         for (const identity of evolutionContacts) {
           const candidates = [
             identity.number,
+            identity.phoneNumber,
+            identity.lid,
             identity.remoteJid,
             identity.remoteJidAlt,
             identity.id,
@@ -640,6 +673,7 @@ export async function POST(request: Request) {
         }
 
         const fetchedPictures = new Map<string, string>();
+        const fetchedNames = new Map<string, string>();
         const phonesNeedingPicture = (repairedContacts ?? [])
           .filter((contact) => {
             const phone = contact.phone_normalized || '';
@@ -676,6 +710,58 @@ export async function POST(request: Request) {
           );
         }
 
+        const genericContacts = (repairedContacts ?? [])
+          .filter((contact) => {
+            const phone = contact.phone_normalized || '';
+            const normalizedName = contact.name?.trim().toLowerCase() || '';
+            return (
+              phone.startsWith('55') &&
+              (phone.length === 12 || phone.length === 13) &&
+              (!normalizedName ||
+                [
+                  'contato do whatsapp',
+                  'desconhecido',
+                  'sem nome',
+                  'você',
+                  'voce',
+                  'you',
+                ].includes(normalizedName) ||
+                /^\d{12,13}$/.test(normalizedName.replace(/\D/g, '')))
+            );
+          })
+          .slice(0, 40);
+        for (let index = 0; index < genericContacts.length; index += 5) {
+          const batch = genericContacts.slice(index, index + 5);
+          await Promise.all(
+            batch.map(async (contact) => {
+              const phone = contact.phone_normalized;
+              if (!phone) return;
+              for (const endpoint of [
+                'fetchProfile',
+                'fetchBusinessProfile',
+              ]) {
+                try {
+                  const profile = await evolution(
+                    config as ConfigRow,
+                    `/chat/${endpoint}/${instance}`,
+                    {
+                      method: 'POST',
+                      body: JSON.stringify({ number: phone }),
+                    },
+                  );
+                  const name = profileNameFrom(profile);
+                  const picture = profilePictureUrlFrom(profile);
+                  if (name) fetchedNames.set(phone, name);
+                  if (picture) fetchedPictures.set(phone, picture);
+                  if (name && picture) break;
+                } catch {
+                  // Common contacts do not necessarily expose a business profile.
+                }
+              }
+            }),
+          );
+        }
+
         for (const contact of repairedContacts ?? []) {
           const phone = contact.phone_normalized || '';
           const identity = identitiesByNumber.get(phone);
@@ -687,7 +773,8 @@ export async function POST(request: Request) {
             identity?.verifiedName ||
             identity?.notify ||
             identity?.businessName ||
-            identity?.lastMessage?.pushName
+            identity?.lastMessage?.pushName ||
+            fetchedNames.get(phone)
           )?.trim();
           const genericName =
             !contact.name?.trim() ||
