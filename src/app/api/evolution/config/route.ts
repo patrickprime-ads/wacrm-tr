@@ -101,6 +101,22 @@ function qrFrom(data: Record<string, unknown>) {
   };
 }
 
+function profilePictureUrlFrom(value: unknown): string | null {
+  if (!value || typeof value !== 'object') return null;
+  const record = value as Record<string, unknown>;
+  for (const key of ['profilePictureUrl', 'profilePicUrl']) {
+    const candidate = record[key];
+    if (typeof candidate === 'string' && candidate.startsWith('http')) {
+      return candidate;
+    }
+  }
+  for (const key of ['data', 'response', 'picture', 'result']) {
+    const nested = profilePictureUrlFrom(record[key]);
+    if (nested) return nested;
+  }
+  return null;
+}
+
 export async function GET() {
   try {
     const { supabase, accountId } = await context();
@@ -452,14 +468,10 @@ export async function POST(request: Request) {
                 `/chat/fetchProfilePictureUrl/${instance}`,
                 {
                   method: 'POST',
-                  body: JSON.stringify({ number: realJid || phone }),
+                  body: JSON.stringify({ number: phone || realJid }),
                 },
               );
-              avatarUrl =
-                (picture.profilePictureUrl as string | undefined) ||
-                ((picture.data as Record<string, unknown> | undefined)
-                  ?.profilePictureUrl as string | undefined) ||
-                null;
+              avatarUrl = profilePictureUrlFrom(picture);
             } catch {
               // The contact may hide their photo through WhatsApp privacy.
             }
@@ -507,26 +519,45 @@ export async function POST(request: Request) {
           }
         }
 
-        const history = await evolution(
-          config as ConfigRow,
-          `/chat/findMessages/${instance}`,
-          {
-            method: 'POST',
-            body: JSON.stringify({ where: { key: {} }, page: 1, offset: 50 }),
+        const pageSize = 100;
+        const maxPages = 5;
+        const seenMessageIds = new Set<string>();
+        for (let page = 1; page <= maxPages; page += 1) {
+          const history = await evolution(
+            config as ConfigRow,
+            `/chat/findMessages/${instance}`,
+            {
+              method: 'POST',
+              body: JSON.stringify({
+                where: { key: {} },
+                page,
+                offset: pageSize,
+              }),
+            },
+          );
+          const container = (history.messages ?? history) as
+            | Record<string, unknown>
+            | EvolutionMessage[];
+          const records = Array.isArray(container)
+            ? container
+            : Array.isArray(container.records)
+              ? (container.records as EvolutionMessage[])
+              : [];
+          if (!records.length) break;
+
+          let newRecordsOnPage = 0;
+          for (const message of records) {
+            const externalId = message.key?.id || message.id;
+            if (externalId && seenMessageIds.has(externalId)) continue;
+            if (externalId) seenMessageIds.add(externalId);
+            newRecordsOnPage += 1;
+            const result = await importEvolutionMessage(accountId, message);
+            if (result === 'imported') imported += 1;
+            else skipped += 1;
           }
-        );
-        const container = (history.messages ?? history) as
-          | Record<string, unknown>
-          | EvolutionMessage[];
-        const records = Array.isArray(container)
-          ? container
-          : Array.isArray(container.records)
-            ? (container.records as EvolutionMessage[])
-            : [];
-        for (const message of records) {
-          const result = await importEvolutionMessage(accountId, message);
-          if (result === 'imported') imported += 1;
-          else skipped += 1;
+          // Some older Evolution versions ignore `page`. Avoid importing
+          // the same first page repeatedly, and stop normally at the end.
+          if (newRecordsOnPage === 0 || records.length < pageSize) break;
         }
       } catch (error) {
         importWarning =
