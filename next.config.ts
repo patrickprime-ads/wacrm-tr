@@ -90,20 +90,33 @@ const nextConfig: NextConfig = {
     ],
   },
   
-  async redirects() {
-    return LOCALIZED_ROUTES.map((route) => ({
-      source: `${route.internal}/:path*`,
-      destination: `${route.public}/:path*`,
+async redirects() {
+  return LOCALIZED_ROUTES.flatMap((route) => [
+    {
+      source: route.internal,
+      destination: route.public,
       permanent: false,
-    }));
-  },
+    },
+    {
+      source: `${route.internal}/:path+`,
+      destination: `${route.public}/:path+`,
+      permanent: false,
+    },
+  ]);
+},
 
-  async rewrites() {
-    return LOCALIZED_ROUTES.map((route) => ({
-      source: `${route.public}/:path*`,
-      destination: `${route.internal}/:path*`,
-    }));
-  },
+async rewrites() {
+  return LOCALIZED_ROUTES.flatMap((route) => [
+    {
+      source: route.public,
+      destination: route.internal,
+    },
+    {
+      source: `${route.public}/:path+`,
+      destination: `${route.internal}/:path+`,
+    },
+  ]);
+},
 
   /**
    * Cache-Control policy.
