@@ -84,6 +84,12 @@ const LOCALIZED_ROUTES = [
 ] as const;
 
 const nextConfig: NextConfig = {
+    outputFileTracingExcludes: {
+    "/*": [
+      "node_modules/next/dist/compiled/@vercel/og/**/*",
+    ],
+  },
+  
   async redirects() {
     return LOCALIZED_ROUTES.map((route) => ({
       source: `${route.internal}/:path*`,
