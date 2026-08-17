@@ -6,6 +6,7 @@ import { useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/use-auth";
 import { useTotalUnread } from "@/hooks/use-total-unread";
+import { useEnabledFeatures, type FeatureKey } from "@/hooks/use-enabled-features";
 import { useTranslations } from 'next-intl';
 import {
   Crown,
@@ -89,6 +90,11 @@ interface NavItem {
    * Purely informational — doesn't affect routing or access.
    */
   beta?: boolean;
+  /**
+   * Feature key for this menu item. If specified, the item is only shown
+   * if the feature is enabled for the account.
+   */
+  feature?: FeatureKey;
 }
 
 
@@ -103,22 +109,29 @@ interface SidebarProps {
 export function Sidebar({ open = false, onClose }: SidebarProps) {
   const pathname = usePathname();
   const { profile, profileLoading, account, accountRole, isMasterAdmin, signOut } = useAuth();
+  const { hasFeature } = useEnabledFeatures();
   const totalUnread = useTotalUnread();
   const t = useTranslations('nav');
   const allNavItems: (NavItem & { adminOnly?: boolean })[] = [
-  { href: "/painel", label: t('dashboard'), icon: LayoutDashboard },
-  { href: "/pipeline-de-vendas", label: "Pipeline de Vendas", icon: GitBranch },
-  { href: "/caixa-de-entrada", label: t('inbox'), icon: MessageSquare },
-  { href: "/contatos", label: t('contacts'), icon: Users },
-  { href: "/pontuacao-de-leads", label: "Lead Scoring", icon: Flame },
-  { href: "/jornada-do-lead", label: "Jornada do Lead", icon: Route },
-  { href: "/acompanhamentos", label: "Follow-ups", icon: Clock3 },
-  { href: "/rastreamento-de-leads", label: "Tracking de Leads", icon: Target, adminOnly: true },
-  { href: "/agentes-de-ia", label: "Agentes IA", icon: Bot, adminOnly: true },
-  { href: "/automacoes", label: t('automations'), icon: Zap, adminOnly: true },
-  { href: "/relatorios", label: "Relatórios", icon: ClipboardList },
+  { href: "/painel", label: t('dashboard'), icon: LayoutDashboard, feature: "dashboard" },
+  { href: "/pipeline-de-vendas", label: "Pipeline de Vendas", icon: GitBranch, feature: "pipeline" },
+  { href: "/caixa-de-entrada", label: t('inbox'), icon: MessageSquare, feature: "inbox" },
+  { href: "/contatos", label: t('contacts'), icon: Users, feature: "contacts" },
+  { href: "/pontuacao-de-leads", label: "Lead Scoring", icon: Flame, feature: "lead_scoring" },
+  { href: "/jornada-do-lead", label: "Jornada do Lead", icon: Route, feature: "lead_journey" },
+  { href: "/acompanhamentos", label: "Follow-ups", icon: Clock3, feature: "follow_ups" },
+  { href: "/rastreamento-de-leads", label: "Tracking de Leads", icon: Target, adminOnly: true, feature: "lead_tracking" },
+  { href: "/agentes-de-ia", label: "Agentes IA", icon: Bot, adminOnly: true, feature: "ai_agents" },
+  { href: "/automacoes", label: t('automations'), icon: Zap, adminOnly: true, feature: "automations" },
+  { href: "/relatorios", label: "Relatórios", icon: ClipboardList, feature: "reports" },
 ];
-  const navItems = allNavItems.filter((item) => !item.adminOnly || accountRole === "owner" || accountRole === "admin");
+  const navItems = allNavItems.filter((item) => {
+    // Check if feature is enabled
+    if (item.feature && !hasFeature(item.feature)) return false;
+    // Check if admin-only
+    if (item.adminOnly && !(accountRole === "owner" || accountRole === "admin")) return false;
+    return true;
+  });
 
 const bottomNavItems = [
   ...(isMasterAdmin ? [{ href: "/painel-master", label: "Painel Master", icon: Crown }] : []),

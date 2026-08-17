@@ -12,6 +12,7 @@ import {
   Tags,
   User,
   UsersRound,
+  Lock,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -37,6 +38,7 @@ export const SETTINGS_SECTIONS = [
   'fields',
   'deals',
   'members',
+  'features',
 ] as const;
 
 export type SettingsSection = (typeof SETTINGS_SECTIONS)[number];
@@ -57,6 +59,7 @@ export const PUBLIC_SECTION_SLUG: Record<SettingsSection, string> = {
   fields: 'campos-e-tags',
   deals: 'vendas-e-valores',
   members: 'equipe',
+  features: 'acessos',
 };
 
 /** Rail grouping. `adminOnly` items are hidden for non-admins. */
@@ -81,6 +84,7 @@ export const SECTION_META: Record<SettingsSection, SectionMeta> = {
   fields: { id: 'fields', label: 'Campos e tags', icon: Tags, group: 'workspace' },
   deals: { id: 'deals', label: 'Vendas e valores', icon: Coins, group: 'workspace' },
   members: { id: 'members', label: 'Membros da equipe', icon: UsersRound, group: 'workspace' },
+  features: { id: 'features', label: 'Acessos e funcionalidades', icon: Lock, group: 'workspace' },
 };
 
 export const RAIL_GROUPS: { label: string | null; group: SectionMeta['group'] }[] = [
