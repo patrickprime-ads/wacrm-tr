@@ -28,6 +28,7 @@ import {
   Loader2,
   Mail,
   MailX,
+  MessagesSquare,
   Plus,
   Trash2,
   UsersRound,
@@ -76,6 +77,8 @@ interface Invitation {
   expires_at: string;
 }
 
+type InboxVisibility = 'shared' | 'assigned';
+
 // Editable roles in the inline dropdown. Owner is never an option —
 // promotions go through the (deferred) Transfer Ownership flow.
 const EDITABLE_ROLES: { value: AccountRole; label: string; hint: string }[] = [
@@ -114,6 +117,8 @@ export function MembersTab() {
   const [members, setMembers] = useState<Member[]>([]);
   const [invitations, setInvitations] = useState<Invitation[]>([]);
   const [loading, setLoading] = useState(true);
+  const [inboxVisibility, setInboxVisibility] = useState<InboxVisibility>('shared');
+  const [savingInboxVisibility, setSavingInboxVisibility] = useState(false);
 
   const [inviteOpen, setInviteOpen] = useState(false);
   const [removingMember, setRemovingMember] = useState<Member | null>(null);
@@ -123,11 +128,12 @@ export function MembersTab() {
 
   const loadEverything = useCallback(async () => {
     try {
-      const [mres, ires] = await Promise.all([
+      const [mres, ires, pres] = await Promise.all([
         fetch('/api/account/members', { cache: 'no-store' }),
         canManageMembers
           ? fetch('/api/account/invitations', { cache: 'no-store' })
           : Promise.resolve(null),
+        fetch('/api/inbox/preferences', { cache: 'no-store' }),
       ]);
 
       if (!mres.ok) {
@@ -137,6 +143,11 @@ export function MembersTab() {
       }
       const mdata = (await mres.json()) as { members: Member[] };
       setMembers(mdata.members);
+
+      if (pres.ok) {
+        const preferences = (await pres.json()) as { visibility?: InboxVisibility };
+        setInboxVisibility(preferences.visibility ?? 'shared');
+      }
 
       if (ires) {
         if (!ires.ok) {
@@ -156,6 +167,29 @@ export function MembersTab() {
       setLoading(false);
     }
   }, [canManageMembers]);
+
+  async function handleInboxVisibilityChange(next: InboxVisibility) {
+    const previous = inboxVisibility;
+    setInboxVisibility(next);
+    setSavingInboxVisibility(true);
+    try {
+      const response = await fetch('/api/inbox/preferences', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ visibility: next }),
+      });
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({}));
+        throw new Error(payload.error || 'Não foi possível alterar a caixa de entrada');
+      }
+      toast.success(next === 'shared' ? 'Caixa compartilhada ativada' : 'Carteiras individuais ativadas');
+    } catch (error) {
+      setInboxVisibility(previous);
+      toast.error(error instanceof Error ? error.message : 'Não foi possível salvar');
+    } finally {
+      setSavingInboxVisibility(false);
+    }
+  }
 
   useEffect(() => {
     void loadEverything();
@@ -275,6 +309,35 @@ export function MembersTab() {
           </RequireRole>
         }
       />
+
+      <Card>
+        <CardContent className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex gap-3">
+            <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+              <MessagesSquare className="size-5" />
+            </div>
+            <div>
+              <h3 className="text-sm font-semibold text-foreground">Visibilidade da Caixa de Entrada</h3>
+              <p className="mt-1 max-w-xl text-xs text-muted-foreground">
+                Na carteira individual, vendedores veem conversas atribuídas a eles e as novas ainda sem responsável. Proprietários e administradores sempre veem todas.
+              </p>
+            </div>
+          </div>
+          <Select
+            value={inboxVisibility}
+            onValueChange={(value) => value && void handleInboxVisibilityChange(value as InboxVisibility)}
+            disabled={!canManageMembers || savingInboxVisibility}
+          >
+            <SelectTrigger className="w-full bg-muted sm:w-56">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="shared">Caixa compartilhada</SelectItem>
+              <SelectItem value="assigned">Carteira individual</SelectItem>
+            </SelectContent>
+          </Select>
+        </CardContent>
+      </Card>
 
       {/* Roster */}
       <Card>

@@ -196,6 +196,8 @@ export interface Message {
   conversation_id: string;
   sender_type: SenderType;
   sender_id?: string;
+  /** Nome resolvido apenas na interface para identificar o atendente. */
+  sender_name?: string;
   content_type: ContentType;
   content_text?: string;
   media_url?: string;

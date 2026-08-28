@@ -51,6 +51,7 @@ export function ConversationList({
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<InboxFilter>("all");
   const [loading, setLoading] = useState(true);
+  const [assigneeNames, setAssigneeNames] = useState<Record<string, string>>({});
 
   // Keep the latest callback in a ref so the fetch effect below can
   // have a stable, empty-dep identity. Previously the fetch useCallback
@@ -74,10 +75,13 @@ export function ConversationList({
     let cancelled = false;
 
     (async () => {
-      const { data, error } = await supabase
-        .from("conversations")
-        .select("*, contact:contacts(*)")
-        .order("last_message_at", { ascending: false });
+      const [{ data, error }, { data: team }] = await Promise.all([
+        supabase
+          .from("conversations")
+          .select("*, contact:contacts(*)")
+          .order("last_message_at", { ascending: false }),
+        supabase.from("profiles").select("user_id, full_name"),
+      ]);
 
       if (cancelled) return;
 
@@ -94,6 +98,11 @@ export function ConversationList({
       }
 
       onConversationsLoadedRef.current(data ?? []);
+      setAssigneeNames(
+        Object.fromEntries(
+          (team ?? []).map((member) => [member.user_id, member.full_name || "Atendente"]),
+        ),
+      );
       setLoading(false);
     })();
 
@@ -208,6 +217,7 @@ export function ConversationList({
               <ConversationItem
                 key={conv.id}
                 conversation={conv}
+                assigneeName={conv.assigned_agent_id ? assigneeNames[conv.assigned_agent_id] : undefined}
                 isActive={conv.id === activeConversationId}
                 onSelect={handleSelect}
               />
@@ -221,12 +231,14 @@ export function ConversationList({
 
 interface ConversationItemProps {
   conversation: Conversation;
+  assigneeName?: string;
   isActive: boolean;
   onSelect: (conversation: Conversation) => void;
 }
 
 function ConversationItem({
   conversation,
+  assigneeName,
   isActive,
   onSelect,
 }: ConversationItemProps) {
@@ -305,6 +317,11 @@ function ConversationItem({
           </div>
         </div>
         <div className="mt-1 flex flex-wrap gap-1">
+          {assigneeName && (
+            <span className="rounded-full bg-slate-500/15 px-1.5 py-0.5 text-[9px] font-medium text-slate-300">
+              Responsável: {assigneeName}
+            </span>
+          )}
           {conversation.channel && conversation.channel !== "whatsapp" && (
             <span className={`rounded-full px-1.5 py-0.5 text-[9px] font-medium ${conversation.channel === "instagram" ? "bg-pink-500/15 text-pink-300" : "bg-blue-500/15 text-blue-300"}`}>
               {conversation.channel === "instagram" ? "Instagram" : "Messenger"}

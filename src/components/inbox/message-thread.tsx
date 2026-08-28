@@ -195,7 +195,7 @@ export function MessageThread({
   onToggleContactPanel,
   officialMetaConnected = false,
 }: MessageThreadProps) {
-  const { user, accountId } = useAuth();
+  const { user, accountId, profile } = useAuth();
   const canEditAi = useCan('edit-settings');
   const [loading, setLoading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -536,6 +536,7 @@ export function MessageThread({
         id: tempId,
         conversation_id: conversation.id,
         sender_type: 'agent',
+        sender_id: user?.id,
         content_type: 'text',
         content_text: text,
         status: 'sending',
@@ -599,6 +600,7 @@ export function MessageThread({
         id: tempId,
         conversation_id: conversation.id,
         sender_type: 'agent',
+        sender_id: user?.id,
         content_type: payload.kind,
         content_text: contentText,
         media_url: payload.mediaUrl,
@@ -806,6 +808,7 @@ export function MessageThread({
         id: tempId,
         conversation_id: conversation.id,
         sender_type: 'agent',
+        sender_id: user?.id,
         content_type: 'template',
         content_text: renderedBody,
         template_name: template.name,
@@ -1061,9 +1064,15 @@ export function MessageThread({
   );
   const assignedAgentId = conversation.assigned_agent_id ?? null;
   const currentAssignee = profiles.find((p) => p.user_id === assignedAgentId);
+  const assignableProfiles =
+    profile?.account_role === 'agent'
+      ? profiles.filter((candidate) => candidate.user_id === user?.id)
+      : profiles;
   const assignLabel = assignedAgentId
     ? (currentAssignee?.full_name ?? 'Responsável')
-    : 'Atribuir';
+    : profile?.account_role === 'agent'
+      ? 'Assumir'
+      : 'Atribuir';
 
   return (
     // `min-w-0` is load-bearing: the page already puts min-w-0 on the
@@ -1364,7 +1373,7 @@ export function MessageThread({
               align="end"
               className="border-border bg-popover"
             >
-              {profiles.length === 0 ? (
+              {assignableProfiles.length === 0 ? (
                 <DropdownMenuItem
                   disabled
                   className="text-muted-foreground text-sm"
@@ -1372,7 +1381,7 @@ export function MessageThread({
                   Nenhum colega disponível
                 </DropdownMenuItem>
               ) : (
-                profiles.map((p) => {
+                assignableProfiles.map((p) => {
                   const isSelected = p.user_id === assignedAgentId;
                   return (
                     <DropdownMenuItem
@@ -1392,7 +1401,7 @@ export function MessageThread({
                   );
                 })
               )}
-              {assignedAgentId && (
+              {assignedAgentId && profile?.account_role !== 'agent' && (
                 <>
                   <DropdownMenuSeparator className="bg-border" />
                   <DropdownMenuItem
@@ -1467,6 +1476,13 @@ export function MessageThread({
                       >
                         <MessageBubble
                           message={msg}
+                          senderLabel={
+                            msg.sender_type === 'bot'
+                              ? 'Enviado pela IA'
+                              : msg.sender_type === 'agent'
+                                ? `Enviado por ${profiles.find((profile) => profile.user_id === msg.sender_id)?.full_name || 'Atendente'}`
+                                : undefined
+                          }
                           reply={reply}
                           reactions={msgReactions}
                           currentUserId={user?.id}

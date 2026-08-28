@@ -185,9 +185,9 @@ export async function POST(request: Request) {
         const result = await zernioRequest(decrypt(zernioConfig.api_key_encrypted), `/inbox/conversations/${encodeURIComponent(conversation.external_conversation_id)}/messages`, { method: 'POST', body: JSON.stringify(payload) })
         const data = (result.data || result) as Record<string, unknown>
         const externalId = String(data.messageId || data.id || crypto.randomUUID())
-        const { data: messageRecord, error: messageError } = await supabase.from('messages').insert({ conversation_id, sender_type: 'agent', content_type: message_type, content_text: content_text || null, media_url: media_url || null, message_id: externalId, status: 'sent', reply_to_message_id: reply_to_message_id || null }).select('id').single()
+        const { data: messageRecord, error: messageError } = await supabase.from('messages').insert({ conversation_id, sender_type: 'agent', sender_id: user.id, content_type: message_type, content_text: content_text || null, media_url: media_url || null, message_id: externalId, status: 'sent', reply_to_message_id: reply_to_message_id || null }).select('id').single()
         if (messageError) throw messageError
-        await supabase.from('conversations').update({ last_message_text: content_text || `[${message_type}]`, last_message_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq('id', conversation_id)
+        await supabase.from('conversations').update({ last_message_text: content_text || `[${message_type}]`, last_message_at: new Date().toISOString(), updated_at: new Date().toISOString(), assigned_agent_id: conversation.assigned_agent_id || user.id }).eq('id', conversation_id)
         await scheduleFollowup(supabaseAdmin(), accountId, conversation_id, contact.id)
         return NextResponse.json({ success: true, message_id: messageRecord.id, whatsapp_message_id: externalId, transport: 'zernio' })
       } catch (error) {
@@ -244,11 +244,11 @@ export async function POST(request: Request) {
         const externalId = key?.id || String(result.messageId || crypto.randomUUID())
         const { data: messageRecord, error: messageError } = await supabase
           .from('messages')
-          .insert({ conversation_id, sender_type: 'agent', content_type: message_type, content_text: content_text || null, media_url: media_url || null, message_id: externalId, status: 'sent', reply_to_message_id: reply_to_message_id || null })
+          .insert({ conversation_id, sender_type: 'agent', sender_id: user.id, content_type: message_type, content_text: content_text || null, media_url: media_url || null, message_id: externalId, status: 'sent', reply_to_message_id: reply_to_message_id || null })
           .select('id')
           .single()
         if (messageError) throw messageError
-        await supabase.from('conversations').update({ last_message_text: content_text || `[${message_type}]`, last_message_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq('id', conversation_id)
+        await supabase.from('conversations').update({ last_message_text: content_text || `[${message_type}]`, last_message_at: new Date().toISOString(), updated_at: new Date().toISOString(), assigned_agent_id: conversation.assigned_agent_id || user.id }).eq('id', conversation_id)
         await scheduleFollowup(supabaseAdmin(), accountId, conversation_id, contact.id)
         return NextResponse.json({ success: true, message_id: messageRecord.id, whatsapp_message_id: externalId, transport: 'evolution' })
       } catch (error) {
@@ -461,6 +461,7 @@ export async function POST(request: Request) {
       .insert({
         conversation_id,
         sender_type: 'agent',
+        sender_id: user.id,
         content_type: message_type,
         content_text: content_text || null,
         media_url: media_url || null,
@@ -487,6 +488,7 @@ export async function POST(request: Request) {
         last_message_text: content_text || `[${message_type}]`,
         last_message_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
+        assigned_agent_id: conversation.assigned_agent_id || user.id,
       })
       .eq('id', conversation_id)
 
