@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
 import { requireRole } from "@/lib/auth/account";
 
 interface DailyReportData {
@@ -23,6 +22,15 @@ interface DailyReportData {
     deals_won: number;
     revenue: number;
   }>;
+}
+
+function relatedProfileName(value: unknown) {
+  const profile = Array.isArray(value) ? value[0] : value;
+  if (!profile || typeof profile !== "object") return "Desconhecido";
+  const fullName = (profile as { full_name?: unknown }).full_name;
+  return typeof fullName === "string" && fullName.trim()
+    ? fullName
+    : "Desconhecido";
 }
 
 /**
@@ -96,7 +104,7 @@ export async function GET(request: Request) {
     // 4. Group by consultant
     const consultantMap = new Map<
       string,
-      { name: string; leads: number; deals: number; revenue: number }
+      { name: string; leads: number; deals_won: number; revenue: number }
     >();
 
     // Count leads per user
@@ -108,13 +116,13 @@ export async function GET(request: Request) {
       .lte("created_at", end.toISOString());
 
     if (!leadUsersErr && leadUsers) {
-      leadUsers.forEach((item: any) => {
+      leadUsers.forEach((item) => {
         const userId = item.user_id;
-        const userName = item.profiles?.full_name || "Desconhecido";
+        const userName = relatedProfileName(item.profiles);
         const existing = consultantMap.get(userId) || {
           name: userName,
           leads: 0,
-          deals: 0,
+          deals_won: 0,
           revenue: 0,
         };
         existing.leads += 1;
@@ -123,17 +131,16 @@ export async function GET(request: Request) {
     }
 
     // Add deals per user
-    deals?.forEach((deal: any) => {
+    deals?.forEach((deal) => {
       const userId = deal.user_id;
-      const userName =
-        deal.profiles?.full_name || "Desconhecido";
+      const userName = relatedProfileName(deal.profiles);
       const existing = consultantMap.get(userId) || {
         name: userName,
         leads: 0,
-        deals: 0,
+        deals_won: 0,
         revenue: 0,
       };
-      existing.deals += 1;
+      existing.deals_won += 1;
       existing.revenue += deal.value || 0;
       consultantMap.set(userId, existing);
     });

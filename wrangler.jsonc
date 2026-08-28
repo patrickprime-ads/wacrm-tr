@@ -3,7 +3,7 @@
   "name": "wacrm-tr",
   "keep_vars": true,
   "main": ".open-next/worker.js",
-  "compatibility_date": "2026-08-12",
+  "compatibility_date": "2026-08-28",
   "compatibility_flags": [
     "nodejs_compat",
     "global_fetch_strictly_public"
@@ -19,6 +19,7 @@
     }
   ],
   "observability": {
-    "enabled": true
+    "enabled": true,
+    "head_sampling_rate": 1
   }
 }

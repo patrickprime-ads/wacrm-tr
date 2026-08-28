@@ -74,11 +74,11 @@ export function CreateAccountDialog({ onSuccess }: CreateAccountDialogProps) {
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button>
+      <DialogTrigger render={<Button />}>
+        <>
           <Plus className="h-4 w-4 mr-2" />
           Nova Empresa
-        </Button>
+        </>
       </DialogTrigger>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
