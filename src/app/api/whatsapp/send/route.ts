@@ -23,6 +23,7 @@ import type { MessageTemplate } from '@/types'
 import { isMessageTemplate } from '@/lib/whatsapp/template-row-guard'
 import { scheduleFollowup } from '@/lib/ai/followups'
 import { evolutionRequest, type EvolutionConfig } from '@/lib/evolution/client'
+import { zernioRequest } from '@/lib/zernio/client'
 
 export async function POST(request: Request) {
   try {
@@ -156,6 +157,42 @@ export async function POST(request: Request) {
         { error: 'Contact phone number not found' },
         { status: 400 }
       )
+    }
+
+    // Zernio conversations carry their remote conversation/account IDs.
+    // Route them before phone validation because Instagram/Messenger
+    // contacts use a platform identifier instead of an E.164 phone.
+    if (conversation.external_provider === 'zernio') {
+      const { data: zernioConfig } = await supabase
+        .from('zernio_config')
+        .select('api_key_encrypted')
+        .eq('account_id', accountId)
+        .maybeSingle()
+      if (!zernioConfig || !conversation.external_conversation_id || !conversation.external_account_id) {
+        return NextResponse.json({ error: 'Canal Zernio não está configurado corretamente.' }, { status: 400 })
+      }
+      if (message_type === 'template') {
+        return NextResponse.json({ error: 'Envio de templates pela Zernio será habilitado na próxima etapa. Responda dentro da janela de atendimento.' }, { status: 400 })
+      }
+      try {
+        const payload: Record<string, unknown> = { accountId: conversation.external_account_id }
+        if (content_text) payload.message = content_text
+        if (isMediaKind) {
+          payload.attachmentUrl = media_url
+          payload.attachmentType = message_type === 'document' ? 'file' : message_type
+          if (filename) payload.attachmentName = filename
+        }
+        const result = await zernioRequest(decrypt(zernioConfig.api_key_encrypted), `/inbox/conversations/${encodeURIComponent(conversation.external_conversation_id)}/messages`, { method: 'POST', body: JSON.stringify(payload) })
+        const data = (result.data || result) as Record<string, unknown>
+        const externalId = String(data.messageId || data.id || crypto.randomUUID())
+        const { data: messageRecord, error: messageError } = await supabase.from('messages').insert({ conversation_id, sender_type: 'agent', content_type: message_type, content_text: content_text || null, media_url: media_url || null, message_id: externalId, status: 'sent', reply_to_message_id: reply_to_message_id || null }).select('id').single()
+        if (messageError) throw messageError
+        await supabase.from('conversations').update({ last_message_text: content_text || `[${message_type}]`, last_message_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq('id', conversation_id)
+        await scheduleFollowup(supabaseAdmin(), accountId, conversation_id, contact.id)
+        return NextResponse.json({ success: true, message_id: messageRecord.id, whatsapp_message_id: externalId, transport: 'zernio' })
+      } catch (error) {
+        return NextResponse.json({ error: `Zernio: ${error instanceof Error ? error.message : 'falha no envio'}` }, { status: 502 })
+      }
     }
 
     // Sanitize and validate phone

@@ -169,6 +169,10 @@ export interface Conversation {
   last_message_text?: string;
   last_message_at?: string;
   unread_count: number;
+  channel?: 'whatsapp' | 'instagram' | 'facebook';
+  external_provider?: 'zernio' | 'evolution' | 'meta';
+  external_conversation_id?: string;
+  external_account_id?: string;
   created_at: string;
   updated_at: string;
   contact?: Contact;

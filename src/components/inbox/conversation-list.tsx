@@ -305,6 +305,14 @@ function ConversationItem({
           </div>
         </div>
         <div className="mt-1 flex flex-wrap gap-1">
+          {conversation.channel && conversation.channel !== "whatsapp" && (
+            <span className={`rounded-full px-1.5 py-0.5 text-[9px] font-medium ${conversation.channel === "instagram" ? "bg-pink-500/15 text-pink-300" : "bg-blue-500/15 text-blue-300"}`}>
+              {conversation.channel === "instagram" ? "Instagram" : "Messenger"}
+            </span>
+          )}
+          {conversation.channel === "whatsapp" && conversation.external_provider === "zernio" && (
+            <span className="rounded-full bg-emerald-500/15 px-1.5 py-0.5 text-[9px] font-medium text-emerald-300">WhatsApp oficial</span>
+          )}
           {contact?.lead_source && (
             <span className="rounded-full bg-violet-500/15 px-1.5 py-0.5 text-[9px] font-medium text-violet-300">
               {contact.lead_source === "meta_ads"
