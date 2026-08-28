@@ -80,7 +80,7 @@ export const PLAN_FEATURES: Record<Plan, FeatureKey[]> = {
  * Fetches features from the backend on mount and caches them.
  */
 export function useEnabledFeatures() {
-  const { profileLoading, accountId } = useAuth();
+  const { profileLoading, accountId, isMasterAdmin } = useAuth();
   const [enabledFeatures, setEnabledFeatures] = useState<FeatureKey[]>(
     PLAN_FEATURES["pro"] // Default to pro plan while loading
   );
@@ -111,6 +111,10 @@ export function useEnabledFeatures() {
 
   const hasFeature = (feature: FeatureKey): boolean => {
     if (profileLoading || loading) return false;
+    // The master administrator manages every customer account and must
+    // always be able to inspect/configure the complete product, regardless
+    // of the plan assigned to the account currently being viewed.
+    if (isMasterAdmin) return true;
     return enabledFeatures.includes(feature);
   };
 
