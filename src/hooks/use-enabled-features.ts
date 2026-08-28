@@ -2,76 +2,8 @@
 
 import { useAuth } from "@/hooks/use-auth";
 import { useEffect, useState } from "react";
-
-export type FeatureKey =
-  | "dashboard"
-  | "contacts"
-  | "pipeline"
-  | "inbox"
-  | "lead_scoring"
-  | "lead_journey"
-  | "follow_ups"
-  | "lead_tracking"
-  | "ai_agents"
-  | "automations"
-  | "reports"
-  | "broadcasts"
-  | "flows"
-  | "integrations"
-  | "templates"
-  | "settings";
-
-export type Plan = "free" | "pro" | "business" | "enterprise";
-
-// Default feature sets for each plan
-export const PLAN_FEATURES: Record<Plan, FeatureKey[]> = {
-  free: ["dashboard", "contacts", "follow_ups", "settings"],
-  pro: [
-    "dashboard",
-    "contacts",
-    "follow_ups",
-    "settings",
-    "pipeline",
-    "inbox",
-    "lead_scoring",
-    "lead_journey",
-    "reports",
-  ],
-  business: [
-    "dashboard",
-    "contacts",
-    "follow_ups",
-    "settings",
-    "pipeline",
-    "inbox",
-    "lead_scoring",
-    "lead_journey",
-    "reports",
-    "lead_tracking",
-    "ai_agents",
-    "automations",
-    "broadcasts",
-    "flows",
-  ],
-  enterprise: [
-    "dashboard",
-    "contacts",
-    "follow_ups",
-    "settings",
-    "pipeline",
-    "inbox",
-    "lead_scoring",
-    "lead_journey",
-    "reports",
-    "lead_tracking",
-    "ai_agents",
-    "automations",
-    "broadcasts",
-    "flows",
-    "integrations",
-    "templates",
-  ],
-};
+import { PLAN_FEATURES, type FeatureKey } from "@/lib/features";
+export { PLAN_FEATURES, type FeatureKey, type Plan } from "@/lib/features";
 
 /**
  * Hook to check if a feature is enabled for the current account.

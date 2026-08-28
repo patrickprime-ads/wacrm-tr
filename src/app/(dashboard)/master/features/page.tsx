@@ -11,7 +11,6 @@ import {
   Crown,
 } from "lucide-react";
 import { formatCurrency } from "@/lib/currency";
-import { Button } from "@/components/ui/button";
 import {
   Select,
   SelectContent,
@@ -22,7 +21,8 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { CreateAccountDialog } from "@/components/master/create-account-dialog";
-import type { Plan } from "@/hooks/use-enabled-features";
+import { FeatureAccessDialog } from "@/components/master/feature-access-dialog";
+import { PLAN_FEATURES, type FeatureKey, type Plan } from "@/lib/features";
 
 type AccountRow = {
   id: string;
@@ -34,6 +34,8 @@ type AccountRow = {
   revenue: number;
   openPipeline: number;
   plan?: Plan;
+  enabledFeatures: FeatureKey[];
+  agentEnabledFeatures: FeatureKey[];
 };
 
 type MasterData = {
@@ -71,7 +73,7 @@ export default function MasterFeaturesPage() {
       const res = await fetch("/api/master/update-features", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ accountId, plan: newPlan }),
+        body: JSON.stringify({ accountId, plan: newPlan, enabledFeatures: PLAN_FEATURES[newPlan] }),
       });
 
       if (!res.ok) {
@@ -85,7 +87,7 @@ export default function MasterFeaturesPage() {
         return {
           ...prev,
           accounts: prev.accounts.map((a) =>
-            a.id === accountId ? { ...a, plan: newPlan } : a
+            a.id === accountId ? { ...a, plan: newPlan, enabledFeatures: PLAN_FEATURES[newPlan] } : a
           ),
         };
       });
@@ -171,7 +173,7 @@ export default function MasterFeaturesPage() {
                 <th className="px-4 py-3">Vendas</th>
                 <th className="px-4 py-3">Receita</th>
                 <th className="px-4 py-3">Plano Atual</th>
-                <th className="px-4 py-3">Ação</th>
+                <th className="px-4 py-3">Ações</th>
               </tr>
             </thead>
             <tbody className="divide-y">
@@ -191,7 +193,7 @@ export default function MasterFeaturesPage() {
                     <td className="px-4 py-3 text-muted-foreground">
                       {account.contacts}
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="flex gap-2 px-4 py-3">
                       <Badge variant="outline">{conversionRate}%</Badge>
                     </td>
                     <td className="px-4 py-3 font-medium text-primary">
@@ -232,6 +234,17 @@ export default function MasterFeaturesPage() {
                           <SelectItem value="enterprise">ENTERPRISE</SelectItem>
                         </SelectContent>
                       </Select>
+                      <FeatureAccessDialog
+                        accountId={account.id}
+                        accountName={account.name}
+                        plan={currentPlan}
+                        adminFeatures={account.enabledFeatures}
+                        agentFeatures={account.agentEnabledFeatures}
+                        onSaved={(enabledFeatures, agentEnabledFeatures) => setData((previous) => previous ? {
+                          ...previous,
+                          accounts: previous.accounts.map((item) => item.id === account.id ? { ...item, enabledFeatures, agentEnabledFeatures } : item),
+                        } : previous)}
+                      />
                     </td>
                   </tr>
                 );

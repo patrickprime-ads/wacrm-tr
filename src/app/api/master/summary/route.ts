@@ -72,12 +72,14 @@ export async function GET() {
       dealsResult,
       contactsResult,
       conversationsResult,
+      featuresResult,
     ] = await Promise.all([
       db.from("accounts").select("id, name, created_at"),
       db.from("profiles").select("account_id, account_role"),
       db.from("deals").select("account_id, status, value, assigned_to"),
       db.from("contacts").select("account_id"),
       db.from("conversations").select("account_id, status"),
+      db.from("account_features").select("account_id, plan, enabled_features, agent_enabled_features"),
     ]);
 
     const queryErrors = [
@@ -86,6 +88,7 @@ export async function GET() {
       { table: "deals", error: dealsResult.error },
       { table: "contacts", error: contactsResult.error },
       { table: "conversations", error: conversationsResult.error },
+      { table: "account_features", error: featuresResult.error },
     ].filter((item) => item.error);
 
     if (queryErrors.length > 0) {
@@ -107,11 +110,13 @@ export async function GET() {
     const deals = dealsResult.data ?? [];
     const contacts = contactsResult.data ?? [];
     const conversations = conversationsResult.data ?? [];
+    const features = featuresResult.data ?? [];
 
     stage = "BUILD_SUMMARY";
 
     const rows = accounts
       .map((account) => {
+        const access = features.find((feature) => feature.account_id === account.id);
         const accountDeals = deals.filter(
           (deal) => deal.account_id === account.id
         );
@@ -119,6 +124,9 @@ export async function GET() {
         return {
           id: account.id,
           name: account.name,
+          plan: access?.plan ?? "free",
+          enabledFeatures: access?.enabled_features ?? [],
+          agentEnabledFeatures: access?.agent_enabled_features ?? [],
 
           sellers: profiles.filter(
             (profile) =>

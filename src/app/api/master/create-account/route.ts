@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import type { Plan } from "@/hooks/use-enabled-features";
+import { DEFAULT_AGENT_FEATURES, PLAN_FEATURES, type Plan } from "@/lib/features";
 
 export async function POST(request: Request) {
   try {
@@ -65,8 +65,6 @@ export async function POST(request: Request) {
 
     // 1. Create auth user with master admin secret key
     // For this, we need to use the service_role client
-    const adminClient = createClient();
-    
     // Generate a temporary password
     const tempPassword = Math.random().toString(36).slice(-12);
 
@@ -103,6 +101,7 @@ export async function POST(request: Request) {
         name: fullName,
         owner_user_id: newUser.id,
         plan,
+        default_currency: "BRL",
       })
       .select("id")
       .single();
@@ -133,6 +132,8 @@ export async function POST(request: Request) {
       .insert({
         account_id: accountData.id,
         plan,
+        enabled_features: PLAN_FEATURES[plan as Plan],
+        agent_enabled_features: DEFAULT_AGENT_FEATURES,
         updated_by_user_id: user.id,
       });
 

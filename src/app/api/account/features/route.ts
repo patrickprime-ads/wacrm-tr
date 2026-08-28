@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import type { PostgrestError } from "@supabase/supabase-js";
 
 import { requireRole, toErrorResponse } from "@/lib/auth/account";
-import type { Plan } from "@/hooks/use-enabled-features";
+import { DEFAULT_AGENT_FEATURES, PLAN_FEATURES, type FeatureKey } from "@/lib/features";
 
 function rpcErrorToResponse(err: PostgrestError): NextResponse {
   if (err.code === "42501") {
@@ -54,13 +54,13 @@ export async function PATCH(request: Request) {
 }
 
 // GET endpoint to retrieve current features
-export async function GET(request: Request) {
+export async function GET() {
   try {
     const ctx = await requireRole("agent");
 
     const { data, error } = await ctx.supabase
       .from("account_features")
-      .select("plan, enabled_features")
+      .select("plan, enabled_features, agent_enabled_features")
       .eq("account_id", ctx.accountId)
       .maybeSingle();
 
@@ -72,14 +72,15 @@ export async function GET(request: Request) {
       );
     }
 
+    const adminFeatures = (data?.enabled_features ?? PLAN_FEATURES.free) as FeatureKey[];
+    const enabledFeatures = ctx.role === "agent" || ctx.role === "viewer"
+      ? (data?.agent_enabled_features ?? DEFAULT_AGENT_FEATURES)
+          .filter((feature: string): feature is FeatureKey => adminFeatures.includes(feature as FeatureKey))
+      : adminFeatures;
+
     return NextResponse.json({
       plan: data?.plan ?? "free",
-      enabledFeatures: data?.enabled_features ?? [
-        "dashboard",
-        "contacts",
-        "follow_ups",
-        "settings",
-      ],
+      enabledFeatures,
     });
   } catch (err) {
     return toErrorResponse(err);

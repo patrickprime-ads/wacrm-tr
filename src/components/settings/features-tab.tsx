@@ -16,7 +16,6 @@ const FEATURE_LABELS: Record<FeatureKey, { name: string; description: string }> 
   pipeline: { name: "Pipeline de Vendas", description: "Visualizar e gerenciar pipeline" },
   inbox: { name: "Caixa de Entrada", description: "Mensagens e conversas WhatsApp" },
   lead_scoring: { name: "Lead Scoring", description: "Análise e pontuação de leads" },
-  lead_journey: { name: "Jornada do Lead", description: "Timeline de interações" },
   follow_ups: { name: "Follow-ups", description: "Agendamento de acompanhamentos" },
   lead_tracking: { name: "Tracking de Leads", description: "Rastreamento avançado (apenas admin)" },
   ai_agents: { name: "Agentes IA", description: "Assistentes inteligentes (apenas admin)" },

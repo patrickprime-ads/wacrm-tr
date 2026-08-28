@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import type { PostgrestError } from "@supabase/supabase-js";
 
-import { requireRole, toErrorResponse } from "@/lib/auth/account";
 import { createClient } from "@/lib/supabase/server";
+import { ALL_FEATURES } from "@/lib/features";
 
 function rpcErrorToResponse(err: PostgrestError): NextResponse {
   if (err.code === "42501") {
@@ -49,12 +49,16 @@ export async function PATCH(request: Request) {
       accountId?: unknown;
       plan?: unknown;
       enabledFeatures?: unknown;
+      agentEnabledFeatures?: unknown;
     } | null;
 
     const accountId = typeof body?.accountId === "string" ? body.accountId : null;
     const plan = typeof body?.plan === "string" ? body.plan : null;
     const enabledFeatures = Array.isArray(body?.enabledFeatures)
       ? body.enabledFeatures.filter((f) => typeof f === "string")
+      : null;
+    const agentEnabledFeatures = Array.isArray(body?.agentEnabledFeatures)
+      ? body.agentEnabledFeatures.filter((f) => typeof f === "string")
       : null;
 
     if (!accountId) {
@@ -71,12 +75,20 @@ export async function PATCH(request: Request) {
       );
     }
 
-    // Call the RPC as master admin (no account_id check because master admin can edit any account)
-    const { error } = await supabase.rpc("update_account_features", {
-      p_account_id: accountId,
-      p_plan: plan,
-      p_enabled_features: enabledFeatures,
-    });
+    const validFeatures = new Set<string>(ALL_FEATURES);
+    if (enabledFeatures?.some((feature) => !validFeatures.has(feature)) || agentEnabledFeatures?.some((feature) => !validFeatures.has(feature))) {
+      return NextResponse.json({ error: "Recurso inválido" }, { status: 400 });
+    }
+    if (enabledFeatures && agentEnabledFeatures?.some((feature) => !enabledFeatures.includes(feature))) {
+      return NextResponse.json({ error: "O vendedor não pode receber um menu bloqueado para a empresa" }, { status: 400 });
+    }
+
+    const update: Record<string, unknown> = { updated_by_user_id: user.id };
+    if (plan) update.plan = plan;
+    if (enabledFeatures) update.enabled_features = enabledFeatures;
+    if (agentEnabledFeatures) update.agent_enabled_features = agentEnabledFeatures;
+    const { error } = await supabase.from("account_features").update(update).eq("account_id", accountId);
+    if (!error && plan) await supabase.from("accounts").update({ plan }).eq("id", accountId);
 
     if (error) return rpcErrorToResponse(error);
 
