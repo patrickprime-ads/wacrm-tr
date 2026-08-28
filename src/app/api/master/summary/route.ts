@@ -92,6 +92,15 @@ export async function GET() {
     ].filter((item) => item.error);
 
     if (queryErrors.length > 0) {
+      console.error('[master-summary] Supabase query failures', {
+        stage,
+        errors: queryErrors.map((item) => ({
+          table: item.table,
+          code: item.error?.code,
+          message: item.error?.message,
+          hint: item.error?.hint,
+        })),
+      });
       return NextResponse.json(
         {
           error: "MASTER_SUMMARY_ERROR",
@@ -190,6 +199,7 @@ export async function GET() {
       },
     });
   } catch (error) {
+    console.error('[master-summary] unexpected failure', { stage, error });
     return NextResponse.json(
       {
         error: "MASTER_SUMMARY_ERROR",

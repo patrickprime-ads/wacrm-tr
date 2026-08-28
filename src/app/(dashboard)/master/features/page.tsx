@@ -59,7 +59,10 @@ export default function MasterFeaturesPage() {
     void fetch("/api/master/summary")
       .then(async (r) => {
         const d = await r.json();
-        if (!r.ok) throw new Error(d.error);
+        if (!r.ok) {
+          const detail = typeof d.detail === "string" ? d.detail : d.detail ? JSON.stringify(d.detail) : "";
+          throw new Error([d.error, detail].filter(Boolean).join(": "));
+        }
         return d;
       })
       .then(setData)

@@ -17,7 +17,7 @@ type MasterData = { accounts: AccountRow[]; totals: { accounts: number; sellers:
 export default function MasterPage() {
   const [data, setData] = useState<MasterData | null>(null);
   const [error, setError] = useState("");
-  useEffect(() => { void fetch("/api/master/summary", { cache: "no-store" }).then(async response => { const body = await response.json(); if (!response.ok) throw new Error(body.error); return body; }).then(setData).catch(caught => setError(caught.message)); }, []);
+  useEffect(() => { void fetch("/api/master/summary", { cache: "no-store" }).then(async response => { const body = await response.json(); if (!response.ok) { const detail = typeof body.detail === "string" ? body.detail : body.detail ? JSON.stringify(body.detail) : ""; throw new Error([body.error, detail].filter(Boolean).join(": ")); } return body; }).then(setData).catch(caught => setError(caught.message)); }, []);
   if (error) return <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-5 text-red-300">{error}</div>;
   if (!data) return <div className="flex justify-center py-20"><Loader2 className="h-6 w-6 animate-spin" /></div>;
   const cards = [["Empresas", data.totals.accounts, Building2], ["Vendedores", data.totals.sellers, Users], ["Contatos", data.totals.contacts, UserRound], ["Vendas totais", formatCurrency(data.totals.revenue), DollarSign]] as const;
