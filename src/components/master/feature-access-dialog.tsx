@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { ALL_FEATURES, DEFAULT_AGENT_FEATURES, FEATURE_LABELS, PLAN_FEATURES, type FeatureKey, type Plan } from "@/lib/features";
+import { ALL_FEATURES, DEFAULT_AGENT_FEATURES, FEATURE_LABELS, getPlanFeatures, type FeatureKey, type Plan } from "@/lib/features";
 
 type Props = {
   accountId: string;
@@ -20,12 +20,12 @@ type Props = {
 export function FeatureAccessDialog(props: Props) {
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [admin, setAdmin] = useState<FeatureKey[]>(props.adminFeatures.length ? props.adminFeatures : PLAN_FEATURES[props.plan]);
+  const [admin, setAdmin] = useState<FeatureKey[]>(props.adminFeatures.length ? props.adminFeatures : getPlanFeatures(props.plan));
   const [agent, setAgent] = useState<FeatureKey[]>(props.agentFeatures.length ? props.agentFeatures : DEFAULT_AGENT_FEATURES);
 
   useEffect(() => {
     if (!open) return;
-    setAdmin(props.adminFeatures.length ? props.adminFeatures : PLAN_FEATURES[props.plan]);
+    setAdmin(props.adminFeatures.length ? props.adminFeatures : getPlanFeatures(props.plan));
     setAgent(props.agentFeatures.length ? props.agentFeatures : DEFAULT_AGENT_FEATURES);
   }, [open, props.adminFeatures, props.agentFeatures, props.plan]);
 

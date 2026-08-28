@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import type { PostgrestError } from "@supabase/supabase-js";
 
 import { createClient } from "@/lib/supabase/server";
+import { supabaseAdmin } from "@/lib/flows/admin-client";
 import { ALL_FEATURES } from "@/lib/features";
 
 function rpcErrorToResponse(err: PostgrestError): NextResponse {
@@ -12,8 +13,14 @@ function rpcErrorToResponse(err: PostgrestError): NextResponse {
     return NextResponse.json({ error: err.message }, { status: 400 });
   }
   console.error("[master-update-features] unexpected RPC error:", err);
+  if (err.code === "PGRST204" || err.message.includes("agent_enabled_features")) {
+    return NextResponse.json(
+      { error: "Execute a atualização 042 no Supabase antes de salvar os acessos." },
+      { status: 409 },
+    );
+  }
   return NextResponse.json(
-    { error: "Failed to update features" },
+    { error: `Não foi possível atualizar os acessos: ${err.message}` },
     { status: 500 },
   );
 }
@@ -68,13 +75,6 @@ export async function PATCH(request: Request) {
       );
     }
 
-    if (plan && !["free", "pro", "business", "enterprise"].includes(plan)) {
-      return NextResponse.json(
-        { error: "Invalid plan value" },
-        { status: 400 },
-      );
-    }
-
     const validFeatures = new Set<string>(ALL_FEATURES);
     if (enabledFeatures?.some((feature) => !validFeatures.has(feature)) || agentEnabledFeatures?.some((feature) => !validFeatures.has(feature))) {
       return NextResponse.json({ error: "Recurso inválido" }, { status: 400 });
@@ -83,12 +83,26 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ error: "O vendedor não pode receber um menu bloqueado para a empresa" }, { status: 400 });
     }
 
-    const update: Record<string, unknown> = { updated_by_user_id: user.id };
-    if (plan) update.plan = plan;
-    if (enabledFeatures) update.enabled_features = enabledFeatures;
-    if (agentEnabledFeatures) update.agent_enabled_features = agentEnabledFeatures;
-    const { error } = await supabase.from("account_features").update(update).eq("account_id", accountId);
-    if (!error && plan) await supabase.from("accounts").update({ plan }).eq("id", accountId);
+    const admin = supabaseAdmin();
+    if (plan) {
+      const { data: selectedPlan } = await admin.from("crm_plans").select("key").eq("key", plan).maybeSingle();
+      if (!selectedPlan) return NextResponse.json({ error: "Plano não encontrado" }, { status: 400 });
+    }
+    const { data: current, error: loadError } = await admin
+      .from("account_features")
+      .select("plan, enabled_features, agent_enabled_features")
+      .eq("account_id", accountId)
+      .maybeSingle();
+    if (loadError) return rpcErrorToResponse(loadError);
+
+    const { error } = await admin.from("account_features").upsert({
+      account_id: accountId,
+      plan: plan ?? current?.plan ?? "free",
+      enabled_features: enabledFeatures ?? current?.enabled_features ?? ["dashboard", "contacts", "follow_ups", "settings"],
+      agent_enabled_features: agentEnabledFeatures ?? current?.agent_enabled_features ?? ["dashboard", "pipeline", "inbox", "contacts", "follow_ups"],
+      updated_by_user_id: user.id,
+    }, { onConflict: "account_id" });
+    if (!error && plan) await admin.from("accounts").update({ plan }).eq("id", accountId);
 
     if (error) return rpcErrorToResponse(error);
 

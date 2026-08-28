@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Building2, DollarSign, Loader2, Users, UserRound } from "lucide-react";
 import { FeatureAccessDialog } from "@/components/master/feature-access-dialog";
+import { PlanManagerDialog } from "@/components/master/plan-manager-dialog";
 import { formatCurrency } from "@/lib/currency";
 import type { FeatureKey, Plan } from "@/lib/features";
 
@@ -22,7 +23,7 @@ export default function MasterPage() {
   const cards = [["Empresas", data.totals.accounts, Building2], ["Vendedores", data.totals.sellers, Users], ["Contatos", data.totals.contacts, UserRound], ["Vendas totais", formatCurrency(data.totals.revenue), DollarSign]] as const;
 
   return <div className="space-y-6">
-    <div><p className="text-xs font-semibold uppercase tracking-widest text-primary">Admin Master</p><h1 className="text-2xl font-bold">Visão geral das empresas</h1><p className="text-sm text-muted-foreground">Resultados e acessos de todos os clientes.</p></div>
+    <div className="flex items-start justify-between gap-4"><div><p className="text-xs font-semibold uppercase tracking-widest text-primary">Admin Master</p><h1 className="text-2xl font-bold">Visão geral das empresas</h1><p className="text-sm text-muted-foreground">Resultados e acessos de todos os clientes.</p></div><PlanManagerDialog /></div>
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">{cards.map(([label, value, Icon]) => <div key={label} className="rounded-xl border bg-card p-4"><Icon className="h-5 w-5 text-primary" /><p className="mt-3 text-xs text-muted-foreground">{label}</p><strong className="text-xl">{value}</strong></div>)}</div>
     <div className="overflow-hidden rounded-xl border bg-card">
       <div className="border-b p-4 font-semibold">Desempenho e acessos por empresa</div>

@@ -4,7 +4,7 @@ export type FeatureKey =
   | "automations" | "reports" | "broadcasts" | "flows"
   | "integrations" | "templates" | "settings";
 
-export type Plan = "free" | "pro" | "business" | "enterprise";
+export type Plan = string;
 
 export const FEATURE_LABELS: Record<FeatureKey, string> = {
   dashboard: "Painel", contacts: "Contatos", pipeline: "Pipeline de vendas",
@@ -18,12 +18,16 @@ export const FEATURE_LABELS: Record<FeatureKey, string> = {
 
 export const ALL_FEATURES = Object.keys(FEATURE_LABELS) as FeatureKey[];
 
-export const PLAN_FEATURES: Record<Plan, FeatureKey[]> = {
+export const PLAN_FEATURES: Record<string, FeatureKey[]> = {
   free: ["dashboard", "contacts", "follow_ups", "settings"],
   pro: ["dashboard", "contacts", "follow_ups", "settings", "pipeline", "inbox", "lead_scoring", "reports"],
   business: ["dashboard", "contacts", "follow_ups", "settings", "pipeline", "inbox", "lead_scoring", "reports", "lead_tracking", "ai_agents", "automations", "broadcasts", "flows"],
   enterprise: ALL_FEATURES,
 };
+
+export function getPlanFeatures(plan: string): FeatureKey[] {
+  return PLAN_FEATURES[plan] ?? PLAN_FEATURES.free;
+}
 
 export const DEFAULT_AGENT_FEATURES: FeatureKey[] = [
   "dashboard", "pipeline", "inbox", "contacts", "follow_ups",

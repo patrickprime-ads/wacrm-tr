@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { DEFAULT_AGENT_FEATURES, PLAN_FEATURES, type Plan } from "@/lib/features";
+import { DEFAULT_AGENT_FEATURES, getPlanFeatures } from "@/lib/features";
+import { supabaseAdmin } from "@/lib/flows/admin-client";
 
 export async function POST(request: Request) {
   try {
@@ -39,7 +40,7 @@ export async function POST(request: Request) {
     const fullName =
       typeof body?.fullName === "string" ? body.fullName.trim() : "";
     const plan =
-      typeof body?.plan === "string" ? body.plan : ("pro" as Plan);
+      typeof body?.plan === "string" ? body.plan : "pro";
 
     // Validation
     if (!email || !fullName) {
@@ -56,7 +57,8 @@ export async function POST(request: Request) {
       );
     }
 
-    if (!["free", "pro", "business", "enterprise"].includes(plan)) {
+    const { data: selectedPlan } = await supabaseAdmin().from("crm_plans").select("key, enabled_features, agent_enabled_features").eq("key", plan).maybeSingle();
+    if (!selectedPlan && !["free", "pro", "business", "enterprise"].includes(plan)) {
       return NextResponse.json(
         { error: "Invalid plan" },
         { status: 400 },
@@ -132,8 +134,8 @@ export async function POST(request: Request) {
       .insert({
         account_id: accountData.id,
         plan,
-        enabled_features: PLAN_FEATURES[plan as Plan],
-        agent_enabled_features: DEFAULT_AGENT_FEATURES,
+        enabled_features: selectedPlan?.enabled_features ?? getPlanFeatures(plan),
+        agent_enabled_features: selectedPlan?.agent_enabled_features ?? DEFAULT_AGENT_FEATURES,
         updated_by_user_id: user.id,
       });
 

@@ -30,11 +30,23 @@ interface CreateAccountDialogProps {
 export function CreateAccountDialog({ onSuccess }: CreateAccountDialogProps) {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [plans, setPlans] = useState<{ key: string; name: string }[]>([
+    { key: "free", name: "Grátis" }, { key: "pro", name: "Pro" },
+    { key: "business", name: "Business" }, { key: "enterprise", name: "Enterprise" },
+  ]);
   const [formData, setFormData] = useState({
     email: "",
     fullName: "",
     plan: "pro" as Plan,
   });
+
+  const handleOpenChange = (nextOpen: boolean) => {
+    setOpen(nextOpen);
+    if (nextOpen) void fetch("/api/master/plans", { cache: "no-store" })
+      .then(async response => response.ok ? response.json() : Promise.reject())
+      .then(body => setPlans(body.plans))
+      .catch(() => undefined);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -73,7 +85,7 @@ export function CreateAccountDialog({ onSuccess }: CreateAccountDialogProps) {
   };
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger render={<Button />}>
         <>
           <Plus className="h-4 w-4 mr-2" />
@@ -129,10 +141,7 @@ export function CreateAccountDialog({ onSuccess }: CreateAccountDialogProps) {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="free">FREE</SelectItem>
-                <SelectItem value="pro">PRO</SelectItem>
-                <SelectItem value="business">BUSINESS</SelectItem>
-                <SelectItem value="enterprise">ENTERPRISE</SelectItem>
+                {plans.map(plan => <SelectItem key={plan.key} value={plan.key}>{plan.name}</SelectItem>)}
               </SelectContent>
             </Select>
             <p className="text-xs text-muted-foreground">
