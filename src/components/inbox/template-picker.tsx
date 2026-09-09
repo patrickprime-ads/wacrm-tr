@@ -104,10 +104,24 @@ export function TemplatePicker({
         return;
       }
 
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("account_id")
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      if (!profile?.account_id) {
+        if (!cancelled) {
+          setTemplates([]);
+          setLoading(false);
+        }
+        return;
+      }
+
       const { data, error } = await supabase
         .from("message_templates")
         .select("*")
-        .eq("user_id", user?.id)
+        .eq("account_id", profile.account_id)
         .eq("status", "APPROVED")
         .order("created_at", { ascending: false });
 

@@ -646,7 +646,11 @@ export default function InboxPage() {
             onRefresh={handleManualRefresh}
             contactPanelOpen={contactPanelOpen}
             onToggleContactPanel={handleToggleContactPanel}
-            officialMetaConnected={officialMetaConnected}
+            officialMetaConnected={
+              activeConversation?.external_provider === 'zernio' ||
+              activeConversation?.external_provider === 'meta' ||
+              (officialMetaConnected && activeConversation?.external_provider !== 'evolution')
+            }
           />
         </div>
 

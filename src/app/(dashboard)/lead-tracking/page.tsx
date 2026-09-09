@@ -4,16 +4,28 @@ import { useEffect, useMemo, useState } from "react";
 import {
   BarChart3,
   CheckCircle2,
+  CircleHelp,
   Loader2,
   MousePointerClick,
   Save,
   Target,
+  UserRoundCheck,
+  UserRoundX,
+  BadgeCheck,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { createClient } from "@/lib/supabase/client";
 import { useCan } from "@/hooks/use-can";
 
@@ -25,6 +37,7 @@ type Lead = {
   source_detail: string | null;
   utm_campaign: string | null;
   conversion_status: string;
+  conversion_value: number | null;
   created_at: string;
 };
 
@@ -74,13 +87,16 @@ export default function LeadTrackingPage() {
   const [settings, setSettings] = useState(INITIAL);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [updatingLeadId, setUpdatingLeadId] = useState<string | null>(null);
+  const [closingLeadId, setClosingLeadId] = useState<string | null>(null);
+  const [closingValue, setClosingValue] = useState("");
 
   useEffect(() => {
     Promise.all([
       createClient()
         .from("contacts")
         .select(
-          "id,name,phone,lead_source,source_detail,utm_campaign,conversion_status,created_at",
+          "id,name,phone,lead_source,source_detail,utm_campaign,conversion_status,conversion_value,created_at",
         )
         .order("created_at", { ascending: false })
         .limit(200),
@@ -122,34 +138,64 @@ export default function LeadTrackingPage() {
   const set = <K extends keyof Settings>(key: K, value: Settings[K]) =>
     setSettings((current) => ({ ...current, [key]: value }));
 
-  async function convert(contactId: string, status: string) {
-    const response = await fetch("/api/lead-tracking/convert", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ contact_id: contactId, status }),
-    });
-    const body = await response.json().catch(() => ({}));
-    if (!response.ok) {
-      toast.error(body.error ?? "Falha ao registrar conversão");
+  async function convert(contactId: string, status: string, value?: number) {
+    setUpdatingLeadId(contactId);
+    try {
+      const response = await fetch("/api/lead-tracking/convert", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ contact_id: contactId, status, value }),
+      });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        toast.error(body.error ?? "Falha ao registrar conversão");
+        return;
+      }
+      setLeads((items) =>
+        items.map((item) =>
+          item.id === contactId
+            ? {
+                ...item,
+                conversion_status: status,
+                conversion_value: status === "customer" ? value ?? 0 : null,
+              }
+            : item,
+        ),
+      );
+      const destinations = [
+        body.meta === "sent" ? "Meta" : null,
+        body.google === "sent" ? "Google Ads" : null,
+      ].filter(Boolean);
+      toast.success(
+        destinations.length
+          ? `Conversão enviada para ${destinations.join(" e ")}`
+          : "Classificação salva no CRM",
+      );
+      if (body.meta === "failed" || body.google === "failed") {
+        toast.warning("Uma integração recusou a conversão. Confira as credenciais.");
+      }
+    } finally {
+      setUpdatingLeadId(null);
+    }
+  }
+
+  function openCustomerValue(lead: Lead) {
+    setClosingLeadId(lead.id);
+    setClosingValue(
+      lead.conversion_value ? String(lead.conversion_value).replace(".", ",") : "",
+    );
+  }
+
+  function confirmCustomer() {
+    if (!closingLeadId) return;
+    const value = Number(closingValue.replace(/\./g, "").replace(",", "."));
+    if (!Number.isFinite(value) || value <= 0) {
+      toast.error("Informe o valor do fechamento");
       return;
     }
-    setLeads((items) =>
-      items.map((item) =>
-        item.id === contactId ? { ...item, conversion_status: status } : item,
-      ),
-    );
-    const destinations = [
-      body.meta === "sent" ? "Meta" : null,
-      body.google === "sent" ? "Google Ads" : null,
-    ].filter(Boolean);
-    toast.success(
-      destinations.length
-        ? `Conversão enviada para ${destinations.join(" e ")}`
-        : "Conversão salva no CRM",
-    );
-    if (body.meta === "failed" || body.google === "failed") {
-      toast.warning("Uma integração recusou a conversão. Confira as credenciais.");
-    }
+    const contactId = closingLeadId;
+    setClosingLeadId(null);
+    void convert(contactId, "customer", value);
   }
 
   async function save() {
@@ -211,7 +257,79 @@ export default function LeadTrackingPage() {
         />
       </div>
 
-      <div className="grid gap-5 lg:grid-cols-[1.2fr_.8fr]">
+      <div className="space-y-5">
+        <section className="rounded-2xl border bg-card p-5">
+          <h2 className="font-semibold">Classificação dos leads</h2>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Identifique rapidamente a qualidade de cada contato.
+          </p>
+          <div className="mt-3 divide-y divide-border">
+            {leads.map((lead) => (
+              <div
+                key={lead.id}
+                className="flex flex-col gap-3 py-3 xl:flex-row xl:items-center xl:justify-between"
+              >
+                <div className="min-w-0 xl:max-w-[42%]">
+                  <p className="truncate text-sm font-medium">
+                    {lead.name &&
+                    !["você", "you"].includes(lead.name.toLowerCase())
+                      ? lead.name
+                      : lead.phone}
+                  </p>
+                  <p className="truncate text-xs text-muted-foreground">
+                    {lead.phone}
+                    {" · "}
+                    {LABELS[lead.lead_source] || lead.lead_source}
+                    {" · "}
+                    {lead.source_detail || lead.utm_campaign || "Sem campanha"}
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-2" aria-label="Classificação do lead">
+                  <LeadStatusButton
+                    label="Desqualificado"
+                    icon={UserRoundX}
+                    active={lead.conversion_status === "lost"}
+                    tone="red"
+                    disabled={updatingLeadId === lead.id}
+                    onClick={() => void convert(lead.id, "lost")}
+                  />
+                  <LeadStatusButton
+                    label="Curioso"
+                    icon={CircleHelp}
+                    active={lead.conversion_status === "lead"}
+                    tone="amber"
+                    disabled={updatingLeadId === lead.id}
+                    onClick={() => void convert(lead.id, "lead")}
+                  />
+                  <LeadStatusButton
+                    label="Qualificado"
+                    icon={BadgeCheck}
+                    active={["qualified_lead", "opportunity"].includes(
+                      lead.conversion_status,
+                    )}
+                    tone="blue"
+                    disabled={updatingLeadId === lead.id}
+                    onClick={() => void convert(lead.id, "qualified_lead")}
+                  />
+                  <LeadStatusButton
+                    label="Cliente"
+                    icon={UserRoundCheck}
+                    active={lead.conversion_status === "customer"}
+                    tone="green"
+                    disabled={updatingLeadId === lead.id}
+                    onClick={() => openCustomerValue(lead)}
+                  />
+                  {lead.conversion_status === "customer" && lead.conversion_value ? (
+                    <span className="inline-flex h-8 items-center rounded-full bg-emerald-500/10 px-3 text-xs font-semibold text-emerald-300">
+                      Fechado em {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(lead.conversion_value)}
+                    </span>
+                  ) : null}
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+
         <section className="rounded-2xl border bg-card p-5">
           <h2 className="font-semibold">Origem dos leads</h2>
           <div className="mt-4 space-y-3">
@@ -239,44 +357,6 @@ export default function LeadTrackingPage() {
                 Os novos leads aparecerão aqui com origem e campanha.
               </p>
             )}
-          </div>
-        </section>
-
-        <section className="rounded-2xl border bg-card p-5">
-          <h2 className="font-semibold">Últimos leads</h2>
-          <div className="mt-3 divide-y divide-border">
-            {leads.slice(0, 8).map((lead) => (
-              <div
-                key={lead.id}
-                className="flex items-center justify-between gap-3 py-3"
-              >
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-medium">
-                    {lead.name &&
-                    !["você", "you"].includes(lead.name.toLowerCase())
-                      ? lead.name
-                      : lead.phone}
-                  </p>
-                  <p className="truncate text-xs text-muted-foreground">
-                    {LABELS[lead.lead_source] || lead.lead_source}
-                    {" · "}
-                    {lead.source_detail || lead.utm_campaign || "Sem campanha"}
-                  </p>
-                </div>
-                <select
-                  aria-label="Status da conversão"
-                  value={lead.conversion_status}
-                  onChange={(event) => void convert(lead.id, event.target.value)}
-                  className="h-8 rounded-lg border bg-background px-2 text-xs"
-                >
-                  <option value="lead">Lead</option>
-                  <option value="qualified_lead">Qualificado</option>
-                  <option value="opportunity">Oportunidade</option>
-                  <option value="customer">Cliente</option>
-                  <option value="lost">Perdido</option>
-                </select>
-              </div>
-            ))}
           </div>
         </section>
       </div>
@@ -313,18 +393,10 @@ export default function LeadTrackingPage() {
               placeholder="123456789012345"
             />
             <div>
-              <Label>Evento enviado</Label>
-              <select
-                value={settings.conversion_event}
-                onChange={(event) => set("conversion_event", event.target.value)}
-                disabled={!canEdit}
-                className="mt-1 h-9 w-full rounded-lg border bg-background px-3 text-sm"
-              >
-                <option value="QualifiedLead">Lead qualificado</option>
-                <option value="Lead">Lead</option>
-                <option value="Contact">Contato</option>
-                <option value="Purchase">Venda</option>
-              </select>
+              <Label>Mapeamento automático</Label>
+              <div className="mt-1 rounded-lg border bg-background px-3 py-2 text-xs text-muted-foreground">
+                Desqualificado → DisqualifiedLead · Qualificado → QualifiedLead · Cliente → Purchase
+              </div>
             </div>
             <SecretField
               label="Token de acesso da Conversions API"
@@ -384,7 +456,82 @@ export default function LeadTrackingPage() {
           </Button>
         </div>
       </section>
+
+      <Dialog open={closingLeadId !== null} onOpenChange={(open) => !open && setClosingLeadId(null)}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Valor do fechamento</DialogTitle>
+            <DialogDescription>
+              Informe quanto esse cliente comprou. O valor será registrado no CRM e enviado à Meta.
+            </DialogDescription>
+          </DialogHeader>
+          <div>
+            <Label htmlFor="closing-value">Valor em reais</Label>
+            <div className="relative mt-1">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">R$</span>
+              <Input
+                id="closing-value"
+                inputMode="decimal"
+                autoFocus
+                value={closingValue}
+                onChange={(event) => setClosingValue(event.target.value)}
+                onKeyDown={(event) => event.key === "Enter" && confirmCustomer()}
+                className="pl-10"
+                placeholder="0,00"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setClosingLeadId(null)}>Cancelar</Button>
+            <Button onClick={confirmCustomer}>Confirmar cliente</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
+  );
+}
+
+function LeadStatusButton({
+  label,
+  icon: Icon,
+  active,
+  tone,
+  disabled,
+  onClick,
+}: {
+  label: string;
+  icon: typeof Target;
+  active: boolean;
+  tone: "red" | "amber" | "blue" | "green";
+  disabled: boolean;
+  onClick: () => void;
+}) {
+  const activeStyles = {
+    red: "border-red-500/60 bg-red-500/15 text-red-300",
+    amber: "border-amber-500/60 bg-amber-500/15 text-amber-300",
+    blue: "border-blue-500/60 bg-blue-500/15 text-blue-300",
+    green: "border-emerald-500/60 bg-emerald-500/15 text-emerald-300",
+  }[tone];
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      aria-pressed={active}
+      className={`inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-xs font-medium transition-colors disabled:cursor-wait disabled:opacity-60 ${
+        active
+          ? activeStyles
+          : "border-border bg-background text-muted-foreground hover:bg-muted hover:text-foreground"
+      }`}
+    >
+      {disabled ? (
+        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+      ) : (
+        <Icon className="h-3.5 w-3.5" />
+      )}
+      {label}
+    </button>
   );
 }
 

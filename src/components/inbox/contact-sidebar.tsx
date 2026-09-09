@@ -173,7 +173,13 @@ export function ContactSidebar({ contact, conversationId }: ContactSidebarProps)
   );
   const displayPhone =
     formatBrazilianPhone(contact.phone) || "Número não disponibilizado";
-  const initials = finalDisplayName.charAt(0).toUpperCase();
+  const initials =
+    finalDisplayName
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part.charAt(0).toUpperCase())
+      .join('') || 'WA';
 
   return (
     <div className="flex h-full w-70 flex-col border-l border-border bg-card">
@@ -181,7 +187,7 @@ export function ContactSidebar({ contact, conversationId }: ContactSidebarProps)
         <div className="p-4">
           {/* Contact Info */}
           <div className="flex flex-col items-center text-center">
-            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-muted text-lg font-semibold text-foreground">
+            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-emerald-400 text-lg font-bold text-emerald-950">
               {contact.avatar_url ? (
                 <>
                   {/* Contact avatars may come from arbitrary customer-hosted HTTPS

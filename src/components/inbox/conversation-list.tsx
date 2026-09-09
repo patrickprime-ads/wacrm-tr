@@ -260,7 +260,10 @@ function ConversationItem({
         : "Contato do WhatsApp";
   const finalDisplayName =
     displayName === "Contato do WhatsApp" ? resolvedDisplayName : displayName;
-  const initials = finalDisplayName.charAt(0).toUpperCase();
+  const nameParts = finalDisplayName.trim().split(/\s+/).filter(Boolean);
+  const initials = /\d/.test(finalDisplayName)
+    ? finalDisplayName.replace(/\D/g, "").slice(-2) || "WA"
+    : `${nameParts[0]?.charAt(0) || ""}${nameParts.length > 1 ? nameParts.at(-1)?.charAt(0) || "" : ""}`.toUpperCase();
 
   const handleClick = useCallback(() => {
     onSelect(conversation);
@@ -282,7 +285,7 @@ function ConversationItem({
       )}
     >
       {/* Avatar */}
-      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-muted text-sm font-medium text-foreground">
+      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-400 text-sm font-bold text-emerald-950 ring-2 ring-emerald-400/15">
         {contact?.avatar_url ? (
           <img
             src={contact.avatar_url}
@@ -290,7 +293,7 @@ function ConversationItem({
             className="h-10 w-10 rounded-full object-cover"
           />
         ) : finalDisplayName === "Número não disponibilizado" ? (
-          <UserRound className="h-4 w-4 text-muted-foreground" />
+          <UserRound className="h-4 w-4 text-emerald-950" />
         ) : (
           initials
         )}
@@ -310,7 +313,7 @@ function ConversationItem({
           </p>
           <div className="flex shrink-0 items-center gap-1.5">
             {conversation.unread_count > 0 && (
-              <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-primary-foreground">
+              <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-emerald-400 px-1 text-[10px] font-bold text-emerald-950">
                 {conversation.unread_count}
               </span>
             )}

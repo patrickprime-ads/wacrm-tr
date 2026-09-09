@@ -112,6 +112,7 @@ export interface Contact {
   click_id?: string;
   conversion_status?: string;
   converted_at?: string;
+  conversion_value?: number;
   lead_temperature?: 'frio' | 'curioso' | 'interessado' | 'quente' | 'vendido' | 'perdido';
   avatar_url?: string;
   created_at: string;

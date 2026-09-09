@@ -78,6 +78,7 @@ interface Invitation {
 }
 
 type InboxVisibility = 'shared' | 'assigned';
+type InboxAssignmentMode = 'manual' | 'balanced';
 
 // Editable roles in the inline dropdown. Owner is never an option —
 // promotions go through the (deferred) Transfer Ownership flow.
@@ -119,6 +120,8 @@ export function MembersTab() {
   const [loading, setLoading] = useState(true);
   const [inboxVisibility, setInboxVisibility] = useState<InboxVisibility>('shared');
   const [savingInboxVisibility, setSavingInboxVisibility] = useState(false);
+  const [inboxAssignmentMode, setInboxAssignmentMode] = useState<InboxAssignmentMode>('manual');
+  const [savingAssignmentMode, setSavingAssignmentMode] = useState(false);
 
   const [inviteOpen, setInviteOpen] = useState(false);
   const [removingMember, setRemovingMember] = useState<Member | null>(null);
@@ -145,8 +148,12 @@ export function MembersTab() {
       setMembers(mdata.members);
 
       if (pres.ok) {
-        const preferences = (await pres.json()) as { visibility?: InboxVisibility };
+        const preferences = (await pres.json()) as {
+          visibility?: InboxVisibility;
+          assignmentMode?: InboxAssignmentMode;
+        };
         setInboxVisibility(preferences.visibility ?? 'shared');
+        setInboxAssignmentMode(preferences.assignmentMode ?? 'manual');
       }
 
       if (ires) {
@@ -188,6 +195,29 @@ export function MembersTab() {
       toast.error(error instanceof Error ? error.message : 'Não foi possível salvar');
     } finally {
       setSavingInboxVisibility(false);
+    }
+  }
+
+  async function handleAssignmentModeChange(next: InboxAssignmentMode) {
+    const previous = inboxAssignmentMode;
+    setInboxAssignmentMode(next);
+    setSavingAssignmentMode(true);
+    try {
+      const response = await fetch('/api/inbox/preferences', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ assignmentMode: next }),
+      });
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({}));
+        throw new Error(payload.error || 'Não foi possível alterar a distribuição');
+      }
+      toast.success(next === 'balanced' ? 'Distribuição automática ativada' : 'Distribuição manual ativada');
+    } catch (error) {
+      setInboxAssignmentMode(previous);
+      toast.error(error instanceof Error ? error.message : 'Não foi possível salvar');
+    } finally {
+      setSavingAssignmentMode(false);
     }
   }
 
@@ -334,6 +364,35 @@ export function MembersTab() {
             <SelectContent>
               <SelectItem value="shared">Caixa compartilhada</SelectItem>
               <SelectItem value="assigned">Carteira individual</SelectItem>
+            </SelectContent>
+          </Select>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardContent className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex gap-3">
+            <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-400">
+              <UsersRound className="size-5" />
+            </div>
+            <div>
+              <h3 className="text-sm font-semibold text-foreground">Distribuição das conversas</h3>
+              <p className="mt-1 max-w-xl text-xs text-muted-foreground">
+                Quando ativada, cada nova conversa vai para o vendedor com menos atendimentos abertos.
+              </p>
+            </div>
+          </div>
+          <Select
+            value={inboxAssignmentMode}
+            onValueChange={(value) => value && void handleAssignmentModeChange(value as InboxAssignmentMode)}
+            disabled={!canManageMembers || savingAssignmentMode}
+          >
+            <SelectTrigger className="w-full bg-muted sm:w-56">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="manual">Não — manual</SelectItem>
+              <SelectItem value="balanced">Sim — automática</SelectItem>
             </SelectContent>
           </Select>
         </CardContent>

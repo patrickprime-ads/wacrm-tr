@@ -1100,7 +1100,7 @@ export function MessageThread({
               <ArrowLeft className="h-5 w-5" />
             </button>
           )}
-          <div className="bg-muted text-foreground flex h-9 w-9 flex-shrink-0 items-center justify-center overflow-hidden rounded-full text-sm font-medium">
+          <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center overflow-hidden rounded-full bg-emerald-400 text-sm font-bold text-emerald-950">
             {contact.avatar_url ? (
               <img
                 src={contact.avatar_url}
@@ -1108,7 +1108,12 @@ export function MessageThread({
                 className="h-full w-full object-cover"
               />
             ) : (
-              finalDisplayName.charAt(0).toUpperCase()
+              finalDisplayName
+                .split(/\s+/)
+                .filter(Boolean)
+                .slice(0, 2)
+                .map((part) => part.charAt(0).toUpperCase())
+                .join('') || 'WA'
             )}
           </div>
           <div className="min-w-0">

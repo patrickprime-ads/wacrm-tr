@@ -288,6 +288,24 @@ export default function PipelinesPage() {
               : item
           )
         );
+
+        // Mantém Tracking, Pipeline e plataformas de anúncio sincronizados.
+        // Ganho vira Cliente com o valor da venda; Perdido é desqualificado.
+        const trackingStatus = automaticClassification === 'vendido'
+          ? 'customer'
+          : 'lost';
+        const trackingResponse = await fetch('/api/lead-tracking/convert', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({
+            contact_id: movedDeal.contact_id,
+            status: trackingStatus,
+            value: trackingStatus === 'customer' ? Number(movedDeal.value || 0) : undefined,
+          }),
+        });
+        if (!trackingResponse.ok) {
+          toast.warning('Venda movida, mas o Tracking não foi sincronizado');
+        }
       }
     },
     [deals, stages, supabase, refreshDeals]
