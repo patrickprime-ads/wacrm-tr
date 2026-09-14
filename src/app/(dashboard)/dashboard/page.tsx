@@ -9,18 +9,16 @@ import {
   MessageSquare,
   UserPlus,
   DollarSign,
-  Send,
+  Target,
 } from 'lucide-react'
 
 import {
-  loadActivity,
   loadConversationsSeries,
   loadMetrics,
   loadPipelineDonut,
   loadResponseTime,
 } from '@/lib/dashboard/queries'
 import type {
-  ActivityItem,
   ConversationsSeriesPoint,
   MetricsBundle,
   PipelineDonutData,
@@ -33,7 +31,7 @@ import { QuickActions } from '@/components/dashboard/quick-actions'
 import { ConversationsChart } from '@/components/dashboard/conversations-chart'
 import { PipelineDonut } from '@/components/dashboard/pipeline-donut'
 import { ResponseTimeChart } from '@/components/dashboard/response-time-chart'
-import { ActivityFeed } from '@/components/dashboard/activity-feed'
+import { ProductRevenue } from '@/components/dashboard/product-revenue'
 import { SalesByAgent } from '@/components/dashboard/sales-by-agent'
 import { LeadOrigins } from '@/components/dashboard/lead-origins'
 
@@ -59,9 +57,6 @@ export default function DashboardPage() {
   const [responseTime, setResponseTime] = useState<ResponseTimeSummary | null>(null)
   const [responseTimeLoading, setResponseTimeLoading] = useState(true)
 
-  const [activity, setActivity] = useState<ActivityItem[] | null>(null)
-  const [activityLoading, setActivityLoading] = useState(true)
-
   const loadAll = useCallback(() => {
     const db = createClient()
 
@@ -85,10 +80,6 @@ export default function DashboardPage() {
       .catch((err) => console.error('[dashboard] response time failed:', err))
       .finally(() => setResponseTimeLoading(false))
 
-    void loadActivity(db, 50)
-      .then((a) => setActivity(a))
-      .catch((err) => console.error('[dashboard] activity failed:', err))
-      .finally(() => setActivityLoading(false))
   }, [])
 
   useEffect(() => {
@@ -151,13 +142,13 @@ export default function DashboardPage() {
               subtitle={`${metrics.openDealsCount} ${t('open_deals')}`}
             />
             <MetricCard
-              title={t('messages_sent_today')}
-              value={metrics.messagesSentToday.current.toLocaleString()}
-              icon={Send}
+              title={t('tracked_conversions_today')}
+              value={metrics.trackedConversionsToday.current.toLocaleString()}
+              icon={Target}
               delta={{
-                sign: metrics.messagesSentToday.current - metrics.messagesSentToday.previous,
+                sign: metrics.trackedConversionsToday.current - metrics.trackedConversionsToday.previous,
                 label: deltaLabel(
-                  metrics.messagesSentToday.current - metrics.messagesSentToday.previous,
+                  metrics.trackedConversionsToday.current - metrics.trackedConversionsToday.previous,
                   t('vs_yesterday'),
                 ),
               }}
@@ -189,7 +180,7 @@ export default function DashboardPage() {
       <ResponseTimeChart data={responseTime} loading={responseTimeLoading} />
       <SalesByAgent />
       <LeadOrigins />
-      <ActivityFeed items={activity} loading={activityLoading} />
+      <ProductRevenue />
     </div>
   )
 }

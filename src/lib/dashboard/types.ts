@@ -12,7 +12,7 @@ export interface MetricsBundle {
   newContactsToday: MetricDelta
   openDealsValue: number
   openDealsCount: number
-  messagesSentToday: MetricDelta
+  trackedConversionsToday: MetricDelta
 }
 
 export interface ConversationsSeriesPoint {

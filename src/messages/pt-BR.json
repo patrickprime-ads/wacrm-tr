@@ -459,11 +459,12 @@
   },
   "dashboard": {
     "title": "Painel",
-    "subtitle": "Análises ao vivo de conversas, contatos, vendas, transmissões e automações.",
+    "subtitle": "Visão ao vivo de contatos, CRM, conversões e desempenho comercial.",
     "active_conversations": "Conversas Ativas",
     "new_contacts_today": "Novos Contatos Hoje",
     "open_deals_value": "Valor de Negócios Abertos",
     "messages_sent_today": "Mensagens Enviadas Hoje",
+    "tracked_conversions_today": "Conversões no Tracking",
     "open_deals": "vendas abertas",
     "vs_yesterday": "vs ontem",
     "new_today_vs_yesterday": "novos hoje vs ontem",

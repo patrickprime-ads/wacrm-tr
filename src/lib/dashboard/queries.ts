@@ -40,8 +40,8 @@ export async function loadMetrics(db: DB): Promise<MetricsBundle> {
     newContactsToday,
     newContatosYesterday,
     openDeals,
-    messagesToday,
-    messagesYesterday,
+    trackedConversionsToday,
+    trackedConversionsYesterday,
   ] = await Promise.all([
     db.from('conversations').select('id', { count: 'exact', head: true }).eq('status', 'open'),
     db
@@ -63,16 +63,16 @@ export async function loadMetrics(db: DB): Promise<MetricsBundle> {
       .lt('created_at', todayStart),
     db.from('deals').select('value, status').eq('status', 'open'),
     db
-      .from('messages')
+      .from('contacts')
       .select('id', { count: 'exact', head: true })
-      .eq('sender_type', 'agent')
-      .gte('created_at', todayStart),
+      .in('conversion_status', ['qualified_lead', 'customer', 'lost'])
+      .gte('updated_at', todayStart),
     db
-      .from('messages')
+      .from('contacts')
       .select('id', { count: 'exact', head: true })
-      .eq('sender_type', 'agent')
-      .gte('created_at', yesterdayStart)
-      .lt('created_at', todayStart),
+      .in('conversion_status', ['qualified_lead', 'customer', 'lost'])
+      .gte('updated_at', yesterdayStart)
+      .lt('updated_at', todayStart),
   ])
 
   const openDealsRows = (openDeals.data ?? []) as { value: number | null }[]
@@ -92,9 +92,9 @@ export async function loadMetrics(db: DB): Promise<MetricsBundle> {
     },
     openDealsValue,
     openDealsCount: openDealsRows.length,
-    messagesSentToday: {
-      current: messagesToday.count ?? 0,
-      previous: messagesYesterday.count ?? 0,
+    trackedConversionsToday: {
+      current: trackedConversionsToday.count ?? 0,
+      previous: trackedConversionsYesterday.count ?? 0,
     },
   }
 }
