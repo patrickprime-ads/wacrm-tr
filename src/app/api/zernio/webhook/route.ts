@@ -13,6 +13,12 @@ function deepString(value: unknown, keys: string[]): string | null {
   return null;
 }
 
+function objectString(value: unknown, key: string): string | null {
+  if (!value || typeof value !== "object") return null;
+  const result = (value as Record<string, unknown>)[key];
+  return typeof result === "string" ? result : null;
+}
+
 export async function POST(request: Request) {
   const accountId = new URL(request.url).searchParams.get("account");
   if (!accountId) return NextResponse.json({ error: "Conta ausente" }, { status: 400 });
@@ -26,8 +32,16 @@ export async function POST(request: Request) {
   const valid = received.length === expected.length && timingSafeEqual(Buffer.from(received), Buffer.from(expected));
   if (!valid) return NextResponse.json({ error: "Assinatura inválida" }, { status: 401 });
   const payload = JSON.parse(raw) as Record<string, unknown>;
-  const remoteAccountId = deepString(payload, ["accountId"]);
-  const conversationId = deepString(payload, ["conversationId"]);
+  // Zernio's inbox webhooks use account.id and conversation.id. Some
+  // endpoint variants flatten those names to accountId/conversationId, so
+  // support both shapes. Without the nested shape every valid incoming
+  // message was acknowledged but ignored before it could create a contact.
+  const remoteAccountId =
+    deepString(payload, ["accountId"]) ?? objectString(payload.account, "id");
+  const conversationId =
+    deepString(payload, ["conversationId"]) ??
+    objectString(payload.conversation, "id") ??
+    objectString(payload.message, "conversationId");
   if (!remoteAccountId || !conversationId) return NextResponse.json({ ok: true, ignored: true });
   const { data: channel } = await db.from("zernio_channels").select("platform").eq("account_id", accountId).eq("zernio_account_id", remoteAccountId).eq("is_active", true).maybeSingle();
   if (!channel) return NextResponse.json({ ok: true, ignored: true });
