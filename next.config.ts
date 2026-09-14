@@ -65,7 +65,7 @@ const SECURITY_HEADERS = [
 
 const LOCALIZED_ROUTES = [
   { internal: "/dashboard", public: "/painel" },
-  { internal: "/pipelines", public: "/pipeline-de-vendas" },
+  { internal: "/pipelines", public: "/crm" },
   { internal: "/inbox", public: "/caixa-de-entrada" },
   { internal: "/contacts", public: "/contatos" },
   { internal: "/lead-scoring", public: "/pontuacao-de-leads" },
@@ -91,7 +91,18 @@ const nextConfig: NextConfig = {
   },
   
 async redirects() {
-  return LOCALIZED_ROUTES.flatMap((route) => [
+  return [
+    {
+      source: "/pipeline-de-vendas",
+      destination: "/crm",
+      permanent: true,
+    },
+    {
+      source: "/pipeline-de-vendas/:path+",
+      destination: "/crm/:path+",
+      permanent: true,
+    },
+    ...LOCALIZED_ROUTES.flatMap((route) => [
     {
       source: route.internal,
       destination: route.public,
@@ -102,7 +113,8 @@ async redirects() {
       destination: `${route.public}/:path+`,
       permanent: false,
     },
-  ]);
+    ]),
+  ];
 },
 
 async rewrites() {

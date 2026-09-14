@@ -113,7 +113,7 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
   const t = useTranslations('nav');
   const allNavItems: (NavItem & { adminOnly?: boolean })[] = [
   { href: "/painel", label: t('dashboard'), icon: LayoutDashboard, feature: "dashboard" },
-  { href: "/pipeline-de-vendas", label: "CRM", icon: GitBranch, feature: "pipeline" },
+  { href: "/crm", label: "CRM", icon: GitBranch, feature: "pipeline" },
   { href: "/caixa-de-entrada", label: t('inbox'), icon: MessageSquare, feature: "inbox" },
   { href: "/contatos", label: t('contacts'), icon: Users, feature: "contacts" },
   { href: "/pontuacao-de-leads", label: "Lead Scoring", icon: Flame, feature: "lead_scoring" },

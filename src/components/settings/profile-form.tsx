@@ -70,14 +70,14 @@ export function ProfileForm() {
     if (!file) return;
 
     if (!ALLOWED_MIME.has(file.type)) {
-      toast.error('Unsupported image type', {
-        description: 'Use PNG, JPG, WebP, or GIF.',
+      toast.error('Tipo de imagem não suportado', {
+        description: 'Use PNG, JPG, WebP ou GIF.',
       });
       return;
     }
     if (file.size > MAX_AVATAR_BYTES) {
-      toast.error('Image is too large', {
-        description: 'Maximum 2 MB.',
+      toast.error('A imagem é muito grande', {
+        description: 'O tamanho máximo é 2 MB.',
       });
       return;
     }
@@ -106,7 +106,7 @@ export function ProfileForm() {
     }
     const trimmedEmail = email.trim();
     if (!EMAIL_RE.test(trimmedEmail)) {
-      toast.error('Enter a valid email address');
+      toast.error('Informe um endereço de e-mail válido');
       return;
     }
 
@@ -127,7 +127,7 @@ export function ProfileForm() {
             contentType: pendingAvatar.type,
           });
         if (uploadError) {
-          throw new Error(`Upload failed: ${uploadError.message}`);
+          throw new Error(`Falha no envio da imagem: ${uploadError.message}`);
         }
         const {
           data: { publicUrl },
@@ -146,7 +146,7 @@ export function ProfileForm() {
         })
         .eq('user_id', user?.id);
       if (updateError) {
-        throw new Error(`Save failed: ${updateError.message}`);
+        throw new Error(`Falha ao salvar: ${updateError.message}`);
       }
 
       // Email change goes through Supabase Auth, which emails a
@@ -161,8 +161,8 @@ export function ProfileForm() {
         });
         if (emailError) {
           // Partial success: name/avatar saved but email didn't.
-          toast.success('Profile saved');
-          toast.error(`Email change failed: ${emailError.message}`);
+          toast.success('Perfil salvo');
+          toast.error(`Falha ao alterar o e-mail: ${emailError.message}`);
           setSaving(false);
           await refreshProfile();
           return;
@@ -178,11 +178,11 @@ export function ProfileForm() {
 
       toast.success(
         emailSent
-          ? 'Profile saved — check your email to confirm the address change'
-          : 'Profile saved',
+          ? 'Perfil salvo — confira seu e-mail para confirmar a alteração de endereço'
+          : 'Perfil salvo',
       );
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Desconhecido error';
+      const msg = err instanceof Error ? err.message : 'Erro desconhecido';
       toast.error(msg);
     } finally {
       setSaving(false);
@@ -292,9 +292,9 @@ export function ProfileForm() {
               <p className="flex items-start gap-2 rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-300">
                 <Mail className="mt-0.5 size-3.5 shrink-0" />
                 <span>
-                  Check the inbox for <strong>{profile?.email}</strong> and{' '}
-                  <strong>{email}</strong> — both need to confirm before the
-                  change takes effect.
+                  Confira as caixas de entrada de <strong>{profile?.email}</strong> e{' '}
+                  <strong>{email}</strong> — os dois endereços precisam confirmar a
+                  alteração.
                 </span>
               </p>
             )}
@@ -309,7 +309,15 @@ export function ProfileForm() {
               <div>
                 <dt className="text-muted-foreground">Função</dt>
                 <dd className="mt-0.5 font-mono text-foreground">
-                  {profile?.role ?? 'user?'}
+                  {profile?.role === 'owner'
+                    ? 'Proprietário'
+                    : profile?.role === 'admin'
+                      ? 'Administrador'
+                      : profile?.role === 'agent'
+                        ? 'Atendente'
+                        : profile?.role === 'viewer'
+                          ? 'Visualizador'
+                          : 'Usuário'}
                 </dd>
               </div>
               <div>
@@ -328,7 +336,7 @@ export function ProfileForm() {
           {!profile && (
             <p className="flex items-center gap-2 text-sm text-muted-foreground">
               <CircleAlert className="size-4" />
-              Loading your profile…
+              Carregando seu perfil…
             </p>
           )}
 
@@ -340,10 +348,10 @@ export function ProfileForm() {
             {saving ? (
               <>
                 <Loader2 className="size-4 animate-spin" />
-                Saving…
+                Salvando…
               </>
             ) : (
-              'Save changes'
+              'Salvar alterações'
             )}
           </Button>
         </div>

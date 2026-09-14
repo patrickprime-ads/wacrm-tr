@@ -72,6 +72,7 @@ export async function middleware(request: NextRequest) {
     '/automations',
     '/settings',
     '/painel',
+    '/crm',
     '/pipeline-de-vendas',
     '/caixa-de-entrada',
     '/contatos',
