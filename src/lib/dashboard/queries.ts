@@ -37,8 +37,9 @@ export async function loadMetrics(db: DB): Promise<MetricsBundle> {
     openConvCur,
     newConvToday,
     newConvYesterday,
-    newContactsToday,
-    newContatosYesterday,
+    contacts,
+    conversations,
+    incomingMessages,
     openDeals,
     trackedConversionsToday,
     trackedConversionsYesterday,
@@ -55,12 +56,16 @@ export async function loadMetrics(db: DB): Promise<MetricsBundle> {
       .eq('status', 'open')
       .gte('created_at', yesterdayStart)
       .lt('created_at', todayStart),
-    db.from('contacts').select('id', { count: 'exact', head: true }).gte('created_at', todayStart),
     db
       .from('contacts')
-      .select('id', { count: 'exact', head: true })
-      .gte('created_at', yesterdayStart)
-      .lt('created_at', todayStart),
+      .select('id, created_at'),
+    db
+      .from('conversations')
+      .select('id, contact_id'),
+    db
+      .from('messages')
+      .select('conversation_id, created_at')
+      .eq('sender_type', 'customer'),
     db.from('deals').select('value, status').eq('status', 'open'),
     db
       .from('contacts')
@@ -78,6 +83,31 @@ export async function loadMetrics(db: DB): Promise<MetricsBundle> {
   const openDealsRows = (openDeals.data ?? []) as { value: number | null }[]
   const openDealsValue = openDealsRows.reduce((sum, d) => sum + (d.value ?? 0), 0)
 
+  // A lead's entry date is its first inbound message, not the date at
+  // which a connector happened to import it. Manual contacts keep their
+  // own creation date as the fallback.
+  const contactForConversation = new Map<string, string>()
+  for (const row of (conversations.data ?? []) as { id: string; contact_id: string | null }[]) {
+    if (row.contact_id) contactForConversation.set(row.id, row.contact_id)
+  }
+  const firstEntryAt = new Map<string, number>()
+  for (const row of (contacts.data ?? []) as { id: string; created_at: string }[]) {
+    const time = new Date(row.created_at).getTime()
+    if (!Number.isNaN(time)) firstEntryAt.set(row.id, time)
+  }
+  for (const row of (incomingMessages.data ?? []) as { conversation_id: string; created_at: string }[]) {
+    const contactId = contactForConversation.get(row.conversation_id)
+    const time = new Date(row.created_at).getTime()
+    if (!contactId || Number.isNaN(time)) continue
+    const existing = firstEntryAt.get(contactId)
+    if (existing === undefined || time < existing) firstEntryAt.set(contactId, time)
+  }
+  const countEntries = (start: string, end?: string) => {
+    const from = new Date(start).getTime()
+    const until = end ? new Date(end).getTime() : Number.POSITIVE_INFINITY
+    return [...firstEntryAt.values()].filter((time) => time >= from && time < until).length
+  }
+
   return {
     activeConversations: {
       current: openConvCur.count ?? 0,
@@ -87,8 +117,8 @@ export async function loadMetrics(db: DB): Promise<MetricsBundle> {
       previous: (newConvToday.count ?? 0) - (newConvYesterday.count ?? 0),
     },
     newContactsToday: {
-      current: newContactsToday.count ?? 0,
-      previous: newContatosYesterday.count ?? 0,
+      current: countEntries(todayStart),
+      previous: countEntries(yesterdayStart, todayStart),
     },
     openDealsValue,
     openDealsCount: openDealsRows.length,

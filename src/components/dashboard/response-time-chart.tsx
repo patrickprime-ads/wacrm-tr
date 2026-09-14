@@ -96,10 +96,10 @@ export function ResponseTimeChart({
             colors={['violet']}
             valueFormatter={(value) => `${value.toFixed(1)}m`}
             showLegend={false}
-            yAxisWidth={48}
+            yAxisWidth={64}
             // Compact height so the chart sits well inside the card
             // without dominating the row alongside the donut + activity feed.
-            className="h-[260px]"
+            className="h-[260px] overflow-visible"
           />
         )}
       </div>
