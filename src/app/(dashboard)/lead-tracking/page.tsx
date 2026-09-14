@@ -7,6 +7,7 @@ import {
   CircleHelp,
   Loader2,
   MousePointerClick,
+  Search,
   Save,
   Target,
   UserRoundCheck,
@@ -90,6 +91,7 @@ export default function LeadTrackingPage() {
   const [updatingLeadId, setUpdatingLeadId] = useState<string | null>(null);
   const [closingLeadId, setClosingLeadId] = useState<string | null>(null);
   const [closingValue, setClosingValue] = useState("");
+  const [leadSearch, setLeadSearch] = useState("");
 
   useEffect(() => {
     Promise.all([
@@ -135,6 +137,15 @@ export default function LeadTrackingPage() {
   const converted = leads.filter(
     (lead) => !["lead", "lost"].includes(lead.conversion_status),
   ).length;
+  const visibleLeads = useMemo(() => {
+    const query = leadSearch.trim().toLocaleLowerCase("pt-BR");
+    if (!query) return leads;
+    const normalizedPhone = query.replace(/\D/g, "");
+    return leads.filter((lead) =>
+      (lead.name || "").toLocaleLowerCase("pt-BR").includes(query) ||
+      lead.phone.replace(/\D/g, "").includes(normalizedPhone),
+    );
+  }, [leads, leadSearch]);
   const set = <K extends keyof Settings>(key: K, value: Settings[K]) =>
     setSettings((current) => ({ ...current, [key]: value }));
 
@@ -263,8 +274,17 @@ export default function LeadTrackingPage() {
           <p className="mt-1 text-xs text-muted-foreground">
             Identifique rapidamente a qualidade de cada contato.
           </p>
+          <div className="relative mt-4 max-w-sm">
+            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={leadSearch}
+              onChange={(event) => setLeadSearch(event.target.value)}
+              placeholder="Buscar nome ou telefone"
+              className="pl-9"
+            />
+          </div>
           <div className="mt-3 divide-y divide-border">
-            {leads.map((lead) => (
+            {visibleLeads.map((lead) => (
               <div
                 key={lead.id}
                 className="flex flex-col gap-3 py-3 xl:flex-row xl:items-center xl:justify-between"
@@ -327,6 +347,11 @@ export default function LeadTrackingPage() {
                 </div>
               </div>
             ))}
+            {visibleLeads.length === 0 && (
+              <p className="py-8 text-center text-sm text-muted-foreground">
+                Nenhum contato encontrado para esta busca.
+              </p>
+            )}
           </div>
         </section>
 
