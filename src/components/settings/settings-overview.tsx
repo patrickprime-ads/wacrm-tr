@@ -28,6 +28,7 @@ interface OverviewCounts {
 interface WhatsAppStatus {
   configured: boolean;
   connected: boolean;
+  provider: 'Zernio' | 'Evolution API' | 'Meta' | null;
 }
 
 export function SettingsOverview({
@@ -110,18 +111,52 @@ export function SettingsOverview({
 
     (async () => {
       setWhatsappLoading(true);
-      const [row, health] = await Promise.allSettled([
+      // O cartão-resumo precisa reconhecer qualquer provedor suportado.
+      // Antes ele consultava só a Cloud API da Meta e mostrava um canal
+      // Zernio/Evolution conectado como "Ainda não configurado".
+      const [metaRow, metaHealth, evolutionRow, zernioHealth] = await Promise.allSettled([
         supabase
           .from('whatsapp_config')
           .select('phone_number_id')
           .eq('account_id', acctId)
           .maybeSingle(),
         fetch('/api/whatsapp/config', { cache: 'no-store' }).then((r) => r.json()),
+        supabase
+          .from('evolution_config')
+          .select('status')
+          .eq('account_id', acctId)
+          .maybeSingle(),
+        fetch('/api/zernio/config', { cache: 'no-store' }).then((r) => r.json()),
       ]);
       if (cancelled) return;
+
+      const metaConfigured =
+        metaRow.status === 'fulfilled' && !!metaRow.value.data?.phone_number_id;
+      const metaConnected =
+        metaHealth.status === 'fulfilled' && !!metaHealth.value?.connected;
+      const evolutionConfigured = evolutionRow.status === 'fulfilled' && !!evolutionRow.value.data;
+      const evolutionConnected =
+        evolutionConfigured &&
+        ['open', 'connected'].includes(String(evolutionRow.value.data?.status).toLowerCase());
+      const zernioConnected =
+        zernioHealth.status === 'fulfilled' &&
+        zernioHealth.value?.status === 'connected' &&
+        Array.isArray(zernioHealth.value?.channels) &&
+        zernioHealth.value.channels.some(
+          (channel: { platform?: string; is_active?: boolean }) =>
+            channel.platform === 'whatsapp' && channel.is_active !== false,
+        );
+
       setWhatsapp({
-        configured: row.status === 'fulfilled' && !!row.value.data?.phone_number_id,
-        connected: health.status === 'fulfilled' && !!health.value?.connected,
+        configured: zernioConnected || evolutionConfigured || metaConfigured,
+        connected: zernioConnected || evolutionConnected || metaConnected,
+        provider: zernioConnected
+          ? 'Zernio'
+          : evolutionConfigured
+            ? 'Evolution API'
+            : metaConfigured
+              ? 'Meta'
+              : null,
       });
       setWhatsappLoading(false);
     })();
@@ -153,7 +188,7 @@ export function SettingsOverview({
         'Ainda não configurado'
       ) : whatsapp.connected ? (
         <>
-          <StatusDot tone="ok" /> Conectado
+          <StatusDot tone="ok" /> Conectado{whatsapp.provider ? ` via ${whatsapp.provider}` : ''}
         </>
       ) : (
         <>
