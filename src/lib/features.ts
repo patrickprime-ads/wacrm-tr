@@ -7,7 +7,7 @@ export type FeatureKey =
 export type Plan = string;
 
 export const FEATURE_LABELS: Record<FeatureKey, string> = {
-  dashboard: "Painel", contacts: "Contatos", pipeline: "Pipeline de vendas",
+  dashboard: "Painel", contacts: "Contatos", pipeline: "CRM",
   inbox: "Caixa de entrada", lead_scoring: "Lead Scoring",
   follow_ups: "Follow-ups",
   lead_tracking: "Tracking de leads", ai_agents: "Agentes IA",

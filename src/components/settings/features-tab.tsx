@@ -13,7 +13,7 @@ import { useAuth } from "@/hooks/use-auth";
 const FEATURE_LABELS: Record<FeatureKey, { name: string; description: string }> = {
   dashboard: { name: "Painel", description: "Acesso ao dashboard principal" },
   contacts: { name: "Contatos", description: "Gerenciamento de contatos" },
-  pipeline: { name: "Pipeline de Vendas", description: "Visualizar e gerenciar pipeline" },
+  pipeline: { name: "CRM", description: "Visualizar e gerenciar funis e oportunidades" },
   inbox: { name: "Caixa de Entrada", description: "Mensagens e conversas WhatsApp" },
   lead_scoring: { name: "Lead Scoring", description: "Análise e pontuação de leads" },
   follow_ups: { name: "Follow-ups", description: "Agendamento de acompanhamentos" },
