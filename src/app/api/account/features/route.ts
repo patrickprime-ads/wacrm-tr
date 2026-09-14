@@ -11,9 +11,15 @@ function rpcErrorToResponse(err: PostgrestError): NextResponse {
   if (err.code === "22023") {
     return NextResponse.json({ error: err.message }, { status: 400 });
   }
+  if (err.code === "PGRST202" || err.message.includes("update_account_features")) {
+    return NextResponse.json(
+      { error: "Execute a atualização 051 no Supabase para salvar os acessos." },
+      { status: 409 },
+    );
+  }
   console.error("[update-features] unexpected RPC error:", err);
   return NextResponse.json(
-    { error: "Failed to update features" },
+    { error: err.message || "Não foi possível atualizar os acessos." },
     { status: 500 },
   );
 }
