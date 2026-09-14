@@ -101,11 +101,26 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-5">
-      <div>
-        <h1 className="text-2xl font-bold text-foreground">{t('title')}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          {t('subtitle')}
-        </p>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">{t('title')}</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {t('subtitle')}
+          </p>
+        </div>
+        <label className="flex items-center gap-2 self-start text-sm text-muted-foreground sm:self-auto">
+          <span>Período</span>
+          <select
+            value={range}
+            onChange={(event) => handleRangeChange(Number(event.target.value) as RangeDays)}
+            className="h-9 rounded-lg border border-border bg-card px-3 text-sm font-medium text-foreground outline-none transition-colors hover:border-primary/50 focus:border-primary"
+            aria-label="Selecionar período do painel"
+          >
+            <option value={7}>Últimos 7 dias</option>
+            <option value={30}>Últimos 30 dias</option>
+            <option value={90}>Últimos 90 dias</option>
+          </select>
+        </label>
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
