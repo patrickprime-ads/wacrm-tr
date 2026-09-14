@@ -188,7 +188,7 @@ export default function InboxPage() {
         return;
       }
 
-      const [{ data: meta }, { data: evolution }] = await Promise.all([
+      const [{ data: meta }, { data: evolution }, { data: zernio }] = await Promise.all([
         supabase
           .from('whatsapp_config')
           .select('status')
@@ -199,11 +199,20 @@ export default function InboxPage() {
           .select('status')
           .eq('account_id', accountId)
           .maybeSingle(),
+        supabase
+          .from('zernio_config')
+          .select('status')
+          .eq('account_id', accountId)
+          .maybeSingle(),
       ]);
 
       const metaConnected = meta?.status === 'connected';
       setOfficialMetaConnected(metaConnected);
-      setWhatsappConnected(metaConnected || evolution?.status === 'open');
+      setWhatsappConnected(
+        metaConnected ||
+          evolution?.status === 'open' ||
+          zernio?.status === 'connected',
+      );
     };
 
     checkConnection();

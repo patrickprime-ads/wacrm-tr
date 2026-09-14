@@ -66,6 +66,11 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Ação inválida" }, { status: 400 });
   } catch (error) {
     console.error("[zernio/config]", error);
-    return NextResponse.json({ error: error instanceof Error ? error.message : "Falha na Zernio" }, { status: 500 });
+    const message = error instanceof Error
+      ? error.message
+      : error && typeof error === "object" && "message" in error && typeof error.message === "string"
+        ? error.message
+        : "Falha na Zernio";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
