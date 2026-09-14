@@ -34,7 +34,11 @@ import { ProductRevenue } from '@/components/dashboard/product-revenue'
 import { SalesByAgent } from '@/components/dashboard/sales-by-agent'
 import { LeadOrigins } from '@/components/dashboard/lead-origins'
 
-type RangeDays = 7 | 30 | 90
+type RangeDays = number
+
+function dateInputValue(date: Date) {
+  return new Intl.DateTimeFormat('en-CA').format(date)
+}
 
 export default function DashboardPage() {
   const { defaultCurrency } = useAuth()
@@ -43,7 +47,7 @@ export default function DashboardPage() {
   const [metricsLoading, setMetricsLoading] = useState(true)
 
   const [range, setRange] = useState<RangeDays>(30)
-  const [series, setSeries] = useState<Record<RangeDays, ConversationsSeriesPoint[] | null>>({
+  const [series, setSeries] = useState<Record<number, ConversationsSeriesPoint[] | null>>({
     7: null,
     30: null,
     90: null,
@@ -55,6 +59,9 @@ export default function DashboardPage() {
 
   const [responseTime, setResponseTime] = useState<ResponseTimeSummary | null>(null)
   const [responseTimeLoading, setResponseTimeLoading] = useState(true)
+  const [periodMode, setPeriodMode] = useState<'preset' | 'custom'>('preset')
+  const [periodStart, setPeriodStart] = useState(() => dateInputValue(new Date(Date.now() - 29 * 86_400_000)))
+  const [periodEnd, setPeriodEnd] = useState(() => dateInputValue(new Date()))
 
   const loadAll = useCallback(() => {
     const db = createClient()
@@ -99,6 +106,20 @@ export default function DashboardPage() {
     [series],
   )
 
+  const applyCustomPeriod = useCallback(() => {
+    const start = new Date(`${periodStart}T00:00:00`)
+    const end = new Date(`${periodEnd}T00:00:00`)
+    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end < start) return
+    end.setDate(end.getDate() + 1)
+    const days = Math.max(1, Math.round((end.getTime() - start.getTime()) / 86_400_000))
+    setRange(days)
+    setSeriesLoading(true)
+    void loadConversationsSeries(createClient(), days, start.toISOString(), end.toISOString())
+      .then((data) => setSeries((previous) => ({ ...previous, [days]: data })))
+      .catch((err) => console.error('[dashboard] custom series failed:', err))
+      .finally(() => setSeriesLoading(false))
+  }, [periodStart, periodEnd])
+
   return (
     <div className="space-y-5">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
@@ -108,19 +129,32 @@ export default function DashboardPage() {
             {t('subtitle')}
           </p>
         </div>
-        <label className="flex items-center gap-2 self-start text-sm text-muted-foreground sm:self-auto">
+        <div className="flex flex-wrap items-center gap-2 self-start text-sm text-muted-foreground sm:self-auto">
           <span>Período</span>
           <select
-            value={range}
-            onChange={(event) => handleRangeChange(Number(event.target.value) as RangeDays)}
+            value={periodMode === 'custom' ? 'custom' : String(range)}
+            onChange={(event) => {
+              if (event.target.value === 'custom') return setPeriodMode('custom')
+              setPeriodMode('preset')
+              handleRangeChange(Number(event.target.value))
+            }}
             className="h-9 rounded-lg border border-border bg-card px-3 text-sm font-medium text-foreground outline-none transition-colors hover:border-primary/50 focus:border-primary"
             aria-label="Selecionar período do painel"
           >
+            <option value={1}>Hoje</option>
             <option value={7}>Últimos 7 dias</option>
             <option value={30}>Últimos 30 dias</option>
             <option value={90}>Últimos 90 dias</option>
+            <option value="custom">Personalizado</option>
           </select>
-        </label>
+          {periodMode === 'custom' && (
+            <>
+              <input aria-label="Data inicial" type="date" value={periodStart} max={periodEnd} onChange={(event) => setPeriodStart(event.target.value)} className="h-9 rounded-lg border border-border bg-card px-2 text-sm text-foreground" />
+              <input aria-label="Data final" type="date" value={periodEnd} min={periodStart} max={dateInputValue(new Date())} onChange={(event) => setPeriodEnd(event.target.value)} className="h-9 rounded-lg border border-border bg-card px-2 text-sm text-foreground" />
+              <button type="button" onClick={applyCustomPeriod} className="h-9 rounded-lg bg-primary px-3 text-sm font-medium text-primary-foreground">Aplicar</button>
+            </>
+          )}
+        </div>
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">

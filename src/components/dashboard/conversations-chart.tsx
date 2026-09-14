@@ -7,11 +7,11 @@ import { EmptyState } from './empty-state'
 import { Skeleton } from './skeleton'
 import { cn } from '@/lib/utils'
 
-type RangeDays = 7 | 30 | 90
+type RangeDays = number
 
 interface ConversationsChartProps {
   /** Per-range data, so switching tabs never re-fetches. */
-  series: Record<RangeDays, ConversationsSeriesPoint[] | null>
+  series: Record<number, ConversationsSeriesPoint[] | null>
   loading: boolean
   range: RangeDays
   onRangeChange: (r: RangeDays) => void

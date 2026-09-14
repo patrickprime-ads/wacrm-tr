@@ -134,16 +134,18 @@ export async function loadMetrics(db: DB): Promise<MetricsBundle> {
 export async function loadConversationsSeries(
   db: DB,
   rangeDays: number,
+  customStart?: string,
+  customEnd?: string,
 ): Promise<ConversationsSeriesPoint[]> {
-  const start = daysAgoStart(rangeDays - 1).toISOString()
-  const { data, error } = await db
-    .from('messages')
-    .select('created_at, sender_type')
-    .gte('created_at', start)
-    .order('created_at', { ascending: true })
+  const start = customStart ?? daysAgoStart(rangeDays - 1).toISOString()
+  let query = db.from('messages').select('created_at, sender_type').gte('created_at', start)
+  if (customEnd) query = query.lt('created_at', customEnd)
+  const { data, error } = await query.order('created_at', { ascending: true })
   if (error) throw error
 
-  const keys = lastNDayKeys(rangeDays)
+  const keys = customStart && customEnd
+    ? dayKeysFromRange(customStart, customEnd)
+    : lastNDayKeys(rangeDays)
   const buckets = new Map<string, { incoming: number; outgoing: number }>()
   for (const k of keys) buckets.set(k, { incoming: 0, outgoing: 0 })
 
@@ -156,6 +158,17 @@ export async function loadConversationsSeries(
   }
 
   return keys.map((day) => ({ day, ...(buckets.get(day) ?? { incoming: 0, outgoing: 0 }) }))
+}
+
+function dayKeysFromRange(start: string, endExclusive: string): string[] {
+  const keys: string[] = []
+  const cursor = startOfLocalDay(new Date(start))
+  const end = new Date(endExclusive)
+  while (cursor < end) {
+    keys.push(localDayKey(cursor))
+    cursor.setDate(cursor.getDate() + 1)
+  }
+  return keys
 }
 
 // --- 3. Pipeline donut -------------------------------------------------
