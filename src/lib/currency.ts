@@ -11,12 +11,17 @@ export const CURRENCIES: CurrencyOption[] = [
   { code: "BRL", label: "Real brasileiro", symbol: "R$" },
 ];
 
-export function formatCurrency(value: number, currency: string = DEFAULT_CURRENCY): string {
+/**
+ * O CRM opera somente em reais. O argumento existe para não quebrar os
+ * componentes mais antigos que ainda o informam, mas valores legados como
+ * "USD" jamais devem voltar a aparecer na interface.
+ */
+export function formatCurrency(value: number, _currency: string = DEFAULT_CURRENCY): string {
   const amount = Number(value) || 0;
   try {
     return new Intl.NumberFormat("pt-BR", {
       style: "currency",
-      currency: currency || DEFAULT_CURRENCY,
+      currency: DEFAULT_CURRENCY,
       minimumFractionDigits: 0,
       maximumFractionDigits: 0,
     }).format(amount);
