@@ -56,12 +56,37 @@ export async function POST(request: Request) {
     if (action === "sync") {
       const { data: channels } = await admin.from("zernio_channels").select("zernio_account_id, platform").eq("account_id", ctx.accountId).eq("is_active", true);
       let imported = 0;
+      let failed = 0;
       for (const channel of channels || []) {
         const result = await zernioRequest(apiKey, `/inbox/conversations?platform=${encodeURIComponent(channel.platform)}&limit=100&sortOrder=desc`);
         const conversations = ((result.data || []) as ZernioConversation[]).filter(item => item.accountId === channel.zernio_account_id);
-        for (const conversation of conversations) { await importZernioConversation(admin, ctx.accountId, account.owner_user_id, apiKey, conversation); imported += 1; }
+        // Import a small batch concurrently. The old sequential loop issued a
+        // request for messages for every conversation one at a time, which
+        // left the settings screen loading for several minutes on an account
+        // with history.
+        for (let start = 0; start < conversations.length; start += 5) {
+          const batch = conversations.slice(start, start + 5);
+          const results = await Promise.allSettled(
+            batch.map((conversation) =>
+              importZernioConversation(
+                admin,
+                ctx.accountId,
+                account.owner_user_id,
+                apiKey,
+                conversation,
+              ),
+            ),
+          );
+          for (const result of results) {
+            if (result.status === "fulfilled") imported += 1;
+            else {
+              failed += 1;
+              console.warn("[zernio/config] skipped conversation during sync", result.reason);
+            }
+          }
+        }
       }
-      return NextResponse.json({ ok: true, imported });
+      return NextResponse.json({ ok: true, imported, failed });
     }
     return NextResponse.json({ error: "Ação inválida" }, { status: 400 });
   } catch (error) {
