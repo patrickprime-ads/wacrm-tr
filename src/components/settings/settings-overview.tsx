@@ -28,7 +28,6 @@ interface OverviewCounts {
 interface WhatsAppStatus {
   configured: boolean;
   connected: boolean;
-  provider: 'Zernio' | 'Evolution API' | 'Meta' | null;
 }
 
 export function SettingsOverview({
@@ -150,13 +149,6 @@ export function SettingsOverview({
       setWhatsapp({
         configured: zernioConnected || evolutionConfigured || metaConfigured,
         connected: zernioConnected || evolutionConnected || metaConnected,
-        provider: zernioConnected
-          ? 'Zernio'
-          : evolutionConfigured
-            ? 'Evolution API'
-            : metaConfigured
-              ? 'Meta'
-              : null,
       });
       setWhatsappLoading(false);
     })();
@@ -188,7 +180,7 @@ export function SettingsOverview({
         'Ainda não configurado'
       ) : whatsapp.connected ? (
         <>
-          <StatusDot tone="ok" /> Conectado{whatsapp.provider ? ` via ${whatsapp.provider}` : ''}
+          <StatusDot tone="ok" /> WhatsApp conectado
         </>
       ) : (
         <>
