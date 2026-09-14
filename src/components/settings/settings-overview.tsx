@@ -28,6 +28,7 @@ interface OverviewCounts {
 interface WhatsAppStatus {
   configured: boolean;
   connected: boolean;
+  provider: 'Zernio' | 'Evolution API' | 'Meta' | null;
 }
 
 export function SettingsOverview({
@@ -35,7 +36,7 @@ export function SettingsOverview({
 }: {
   onSelect: (section: SettingsSection) => void;
 }) {
-  const { user, profile, accountId, accountRole, defaultCurrency, canManageMembers } =
+  const { user, profile, accountId, accountRole, defaultCurrency, canManageMembers, isMasterAdmin } =
     useAuth();
   const { mode, theme } = useTheme();
 
@@ -149,6 +150,13 @@ export function SettingsOverview({
       setWhatsapp({
         configured: zernioConnected || evolutionConfigured || metaConfigured,
         connected: zernioConnected || evolutionConnected || metaConnected,
+        provider: zernioConnected
+          ? 'Zernio'
+          : evolutionConfigured
+            ? 'Evolution API'
+            : metaConfigured
+              ? 'Meta'
+              : null,
       });
       setWhatsappLoading(false);
     })();
@@ -180,7 +188,7 @@ export function SettingsOverview({
         'Ainda não configurado'
       ) : whatsapp.connected ? (
         <>
-          <StatusDot tone="ok" /> WhatsApp conectado
+          <StatusDot tone="ok" /> WhatsApp conectado{isMasterAdmin && whatsapp.provider ? ` · ${whatsapp.provider}` : ''}
         </>
       ) : (
         <>
