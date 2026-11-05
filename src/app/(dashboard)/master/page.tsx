@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Building2, DollarSign, Loader2, Users, UserRound } from "lucide-react";
 import { FeatureAccessDialog } from "@/components/master/feature-access-dialog";
 import { PlanManagerDialog } from "@/components/master/plan-manager-dialog";
+import { InboundTokenDialog } from "@/components/master/inbound-token-dialog";
 import { formatCurrency } from "@/lib/currency";
 import type { FeatureKey, Plan } from "@/lib/features";
 
@@ -32,7 +33,8 @@ export default function MasterPage() {
         <span className="text-sm">{account.sellers} vendedores</span><span className="text-sm">{account.contacts} leads</span>
         <span className="text-sm">{account.contacts ? Math.round((account.wonDeals / account.contacts) * 100) : 0}% conversão</span>
         <div><span className="block text-sm">{account.wonDeals} vendas</span><strong className="text-sm text-primary">{formatCurrency(account.revenue)}</strong></div>
-        <FeatureAccessDialog accountId={account.id} accountName={account.name} plan={account.plan} adminFeatures={account.enabledFeatures} agentFeatures={account.agentEnabledFeatures} onSaved={(enabledFeatures, agentEnabledFeatures) => setData(previous => previous ? { ...previous, accounts: previous.accounts.map(item => item.id === account.id ? { ...item, enabledFeatures, agentEnabledFeatures } : item) } : previous)} />
+        <div className="flex flex-wrap gap-2"><InboundTokenDialog accountId={account.id} accountName={account.name} />
+        <FeatureAccessDialog accountId={account.id} accountName={account.name} plan={account.plan} adminFeatures={account.enabledFeatures} agentFeatures={account.agentEnabledFeatures} onSaved={(enabledFeatures, agentEnabledFeatures) => setData(previous => previous ? { ...previous, accounts: previous.accounts.map(item => item.id === account.id ? { ...item, enabledFeatures, agentEnabledFeatures } : item) } : previous)} /></div>
       </div>)}</div>
     </div>
   </div>;
