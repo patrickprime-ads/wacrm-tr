@@ -143,11 +143,12 @@ export async function POST(request: Request) {
     })();
     const source = leadSource(channel, utmSource);
     const sourceDetail = [channel, campaign, adHeadline].filter(Boolean).join(" · ") || "Rastreio";
+    // Bancos mais antigos não têm contacts.source_url: o link do anúncio fica no histórico.
+    const adUrl = text(body.ad_url ?? body.landing_page, 500);
 
     const attribution = {
       lead_source: source,
       source_detail: sourceDetail,
-      source_url: text(body.ad_url ?? body.landing_page, 500),
       utm_source: utmSource ?? (source === "meta_ads" ? "meta" : null),
       utm_medium: text(body.utm_medium, 120) ?? (source === "meta_ads" ? "paid_social" : null),
       utm_campaign: campaign,
@@ -206,7 +207,10 @@ export async function POST(request: Request) {
           .eq("account_id", account.id)
           .eq("phone_normalized", phone)
           .maybeSingle();
-        if (!raced) throw created.error;
+        if (!raced) {
+          console.error("[leads/inbound] contato:", created.error.message);
+          throw created.error;
+        }
         contactId = raced.id as string;
       } else {
         contactId = created.data.id as string;
@@ -245,7 +249,10 @@ export async function POST(request: Request) {
         })
         .select("id")
         .single();
-      if (created.error) throw created.error;
+      if (created.error) {
+        console.error("[leads/inbound] card:", created.error.message);
+        throw created.error;
+      }
       dealId = created.data.id as string;
       createdDeal = true;
     }
@@ -259,14 +266,16 @@ export async function POST(request: Request) {
       hour: "2-digit",
       minute: "2-digit",
     });
-    await db.from("deal_activities").insert({
+    // Histórico do card: em bancos sem a tabela deal_activities (migração 038), segue sem ele.
+    const history = await db.from("deal_activities").insert({
       account_id: account.id,
       deal_id: dealId,
       actor_name: "Rastreio",
       event_type: createdDeal ? "lead_received" : "lead_returned",
       description: `${createdDeal ? "Lead recebido" : "Lead voltou a chamar"} em ${when} · ${sourceDetail}`,
-      metadata: { source, campaign, ad_id: attribution.ad_id, ad_headline: adHeadline, external_id: attribution.external_lead_id },
+      metadata: { source, campaign, ad_id: attribution.ad_id, ad_headline: adHeadline, ad_url: adUrl, external_id: attribution.external_lead_id },
     });
+    if (history.error) console.warn("[leads/inbound] histórico não gravado:", history.error.message);
 
     return NextResponse.json({
       ok: true,
@@ -277,6 +286,7 @@ export async function POST(request: Request) {
     });
   } catch (error) {
     console.error("[leads/inbound]", error);
-    return NextResponse.json({ ok: false, error: "Falha ao registrar o lead" }, { status: 500 });
+    const message = error && typeof error === "object" && "message" in error ? String((error as { message: unknown }).message) : "";
+    return NextResponse.json({ ok: false, error: `Falha ao registrar o lead${message ? `: ${message.slice(0, 160)}` : ""}` }, { status: 500 });
   }
 }
