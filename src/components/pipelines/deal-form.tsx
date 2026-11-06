@@ -69,26 +69,6 @@ const LEAD_OPTIONS: Array<{ value: LeadTemperature; label: string }> = [
   { value: 'perdido', label: 'Perdido' },
 ];
 
-const QUICK_PRODUCTS: QuickProduct[] = [
-  { name: 'Cartão Essence', price: 59.9, group: 'Cartões principais', detail: 'Até 5 pessoas' },
-  { name: 'Cartão Smart', price: 69.9, group: 'Cartões principais' },
-  { name: 'Cartão Premium', price: 89.9, group: 'Cartões principais' },
-  { name: 'Cartão Gold', price: 119.9, group: 'Cartões principais' },
-  { name: 'Cartão Empresarial PJ', price: null, group: 'Cartões principais', detail: 'Valor personalizado' },
-  { name: 'Premium DIH 300', price: 149.9, group: 'Premium com DIH' },
-  { name: 'Premium DIH 500', price: 189.9, group: 'Premium com DIH' },
-  { name: 'Premium DIH 1000', price: 269.9, group: 'Premium com DIH' },
-  { name: 'Seguro Funeral Ampliado', price: 99.9, group: 'Adicionais / UP' },
-  { name: 'Seguro Despesas Médicas', price: 19.9, group: 'Adicionais / UP' },
-  { name: 'UP Internação 300', price: null, group: 'Adicionais / UP', detail: 'Valor personalizado' },
-  { name: 'UP Internação 500', price: null, group: 'Adicionais / UP', detail: 'Valor personalizado' },
-  { name: 'UP Internação 1000', price: null, group: 'Adicionais / UP', detail: 'Valor personalizado' },
-  { name: 'Odontologia', price: null, group: 'Serviços avulsos', detail: 'Preencher valor' },
-  { name: 'Exames', price: null, group: 'Serviços avulsos', detail: 'Laboratório / imagem' },
-  { name: 'Consulta', price: null, group: 'Serviços avulsos', detail: 'Especialidades médicas' },
-  { name: 'Outros', price: null, group: 'Serviços avulsos', detail: 'Serviço personalizado' },
-];
-
 export function DealForm({
   open,
   onOpenChange,
@@ -122,7 +102,7 @@ export function DealForm({
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [availableProducts, setAvailableProducts] =
-    useState<QuickProduct[]>(QUICK_PRODUCTS);
+    useState<QuickProduct[]>([]);
   const [linkedConversation, setLinkedConversation] =
     useState<Conversation | null>(null);
 
@@ -199,17 +179,11 @@ export function DealForm({
             price: product.price == null ? null : Number(product.price),
             detail: product.detail ?? undefined,
           }));
-        const customNames = new Set(
-          customProducts.map((product) => product.name.toLocaleLowerCase('pt-BR')),
-        );
-        setAvailableProducts([
-          ...QUICK_PRODUCTS.filter(
-            (product) => !customNames.has(product.name.toLocaleLowerCase('pt-BR')),
-          ),
-          ...customProducts,
-        ]);
+        // Só o catálogo da própria empresa (Configurações → Produtos).
+        // A lista fixa da Vida Card aparecia para todas as contas.
+        setAvailableProducts(customProducts);
       } else {
-        setAvailableProducts(QUICK_PRODUCTS);
+        setAvailableProducts([]);
       }
     })();
     return () => {
