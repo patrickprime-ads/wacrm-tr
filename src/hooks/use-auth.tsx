@@ -165,14 +165,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               name: string;
               default_currency: string | null;
             } | null);
-        // Narrow default_currency defensively: forks running pre-021
-        // schemas won't have the column, so a missing/null value reads
-        // as the safe USD fallback rather than crashing the picker.
+        // Este CRM é padronizado em reais. Contas legadas podem ainda ter
+        // "USD" gravado, mas isso não deve contaminar a interface.
         const accountRow: AccountSummary | null = accountRaw
           ? {
               id: accountRaw.id,
               name: accountRaw.name,
-              default_currency: accountRaw.default_currency ?? DEFAULT_CURRENCY,
+              default_currency: DEFAULT_CURRENCY,
             }
           : null;
 

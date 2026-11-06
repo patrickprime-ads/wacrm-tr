@@ -112,6 +112,7 @@ export interface Contact {
   click_id?: string;
   conversion_status?: string;
   converted_at?: string;
+  conversion_value?: number;
   lead_temperature?: 'frio' | 'curioso' | 'interessado' | 'quente' | 'vendido' | 'perdido';
   avatar_url?: string;
   created_at: string;
@@ -169,6 +170,10 @@ export interface Conversation {
   last_message_text?: string;
   last_message_at?: string;
   unread_count: number;
+  channel?: 'whatsapp' | 'instagram' | 'facebook';
+  external_provider?: 'zernio' | 'evolution' | 'meta';
+  external_conversation_id?: string;
+  external_account_id?: string;
   created_at: string;
   updated_at: string;
   contact?: Contact;
@@ -192,6 +197,8 @@ export interface Message {
   conversation_id: string;
   sender_type: SenderType;
   sender_id?: string;
+  /** Nome resolvido apenas na interface para identificar o atendente. */
+  sender_name?: string;
   content_type: ContentType;
   content_text?: string;
   media_url?: string;

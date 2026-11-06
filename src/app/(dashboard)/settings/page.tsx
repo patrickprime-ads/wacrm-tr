@@ -19,8 +19,10 @@ import { TemplateManager } from '@/components/settings/template-manager';
 import { FieldsAndTagsPanel } from '@/components/settings/fields-and-tags-panel';
 import { DealsSettings } from '@/components/settings/deals-settings';
 import { MembersTab } from '@/components/settings/members-tab';
+import { FeaturesTab } from '@/components/settings/features-tab';
 import {
   PUBLIC_SECTION_SLUG,
+  isSectionVisible,
   resolveSection,
   type SettingsSection,
 } from '@/components/settings/settings-sections';
@@ -28,14 +30,16 @@ import {
 export default function SettingsPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { defaultCurrency } = useAuth();
+  const { defaultCurrency, isMasterAdmin } = useAuth();
   const { mode } = useTheme();
 
   // The URL (`?tab=`) is the single source of truth for the active
   // section — deep-linkable, and it keeps the existing links in the
   // app sidebar/header working. Legacy tab values (tags, custom-fields)
   // resolve onto their new home; unknown/empty → the Overview landing.
-  const section = resolveSection(searchParams.get('tab'));
+  const requested = resolveSection(searchParams.get('tab'));
+  // Seções escondidas para clientes caem na visão geral mesmo pelo link direto.
+  const section = isSectionVisible(requested, isMasterAdmin) ? requested : 'overview';
 
   const go = (next: SettingsSection) => {
     const params = new URLSearchParams(searchParams.toString());
@@ -68,6 +72,7 @@ export default function SettingsPage() {
     fields: <FieldsAndTagsPanel />,
     deals: <DealsSettings />,
     members: <MembersTab />,
+    features: <FeaturesTab />,
   };
 
   return (

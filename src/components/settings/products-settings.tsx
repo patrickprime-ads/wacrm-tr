@@ -23,7 +23,7 @@ export function ProductsSettings() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [name, setName] = useState("");
-  const [category, setCategory] = useState("Cartões principais");
+  const [category, setCategory] = useState("Serviços");
   const [price, setPrice] = useState("");
   const [detail, setDetail] = useState("");
   const db = createClient();
@@ -68,15 +68,15 @@ export function ProductsSettings() {
     <section className="space-y-5">
       <div>
         <h2 className="flex items-center gap-2 text-xl font-semibold"><Package className="h-5 w-5 text-primary" />Produtos</h2>
-        <p className="text-sm text-muted-foreground">Cadastre os blocos que aparecem automaticamente em Nova Venda.</p>
+        <p className="text-sm text-muted-foreground">Cadastre os produtos e serviços da empresa. Eles aparecem para escolher ao registrar uma venda.</p>
       </div>
       <div className="grid gap-3 rounded-xl border bg-card p-4 md:grid-cols-2">
         <Input value={name} onChange={(event) => setName(event.target.value)} placeholder="Nome do produto" />
         <select value={category} onChange={(event) => setCategory(event.target.value)} className="h-10 rounded-lg border bg-muted px-3 text-sm">
-          <option>Cartões principais</option>
-          <option>Premium com DIH</option>
-          <option>Adicionais / UP</option>
-          <option>Serviços avulsos</option>
+          <option>Serviços</option>
+          <option>Produtos</option>
+          <option>Planos e pacotes</option>
+          <option>Adicionais</option>
           <option>Outros</option>
         </select>
         <div className="relative">
@@ -99,7 +99,7 @@ export function ProductsSettings() {
               <button onClick={() => void removeProduct(product.id)} className="rounded-lg p-2 text-red-400 hover:bg-red-500/10"><Trash2 className="h-4 w-4" /></button>
             </div>
           ))}
-          {!products.length && <p className="text-sm text-muted-foreground">Nenhum produto personalizado. Os blocos padrão continuam disponíveis.</p>}
+          {!products.length && <p className="text-sm text-muted-foreground">Nenhum produto cadastrado ainda.</p>}
         </div>
       )}
     </section>

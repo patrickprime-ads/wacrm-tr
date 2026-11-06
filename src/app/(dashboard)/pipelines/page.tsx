@@ -288,6 +288,24 @@ export default function PipelinesPage() {
               : item
           )
         );
+
+        // Mantém Tracking, Pipeline e plataformas de anúncio sincronizados.
+        // Ganho vira Cliente com o valor da venda; Perdido é desqualificado.
+        const trackingStatus = automaticClassification === 'vendido'
+          ? 'customer'
+          : 'lost';
+        const trackingResponse = await fetch('/api/lead-tracking/convert', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({
+            contact_id: movedDeal.contact_id,
+            status: trackingStatus,
+            value: trackingStatus === 'customer' ? Number(movedDeal.value || 0) : undefined,
+          }),
+        });
+        if (!trackingResponse.ok) {
+          toast.warning('Venda movida, mas o Tracking não foi sincronizado');
+        }
       }
     },
     [deals, stages, supabase, refreshDeals]
@@ -404,10 +422,10 @@ export default function PipelinesPage() {
         <div>
           <div className="text-primary mb-1 flex items-center gap-2 text-xs font-semibold tracking-[0.18em] uppercase">
             <Sparkles className="h-3.5 w-3.5" />
-            Central de vendas
+            CRM
           </div>
           <h1 className="text-foreground text-2xl font-bold tracking-tight">
-            Pipeline de leads
+            CRM de vendas
           </h1>
           <p className="text-muted-foreground mt-1 text-sm">
             Acompanhe oportunidades, prioridades e receita em um só lugar.

@@ -9,18 +9,16 @@ import {
   MessageSquare,
   UserPlus,
   DollarSign,
-  Send,
+  Target,
 } from 'lucide-react'
 
 import {
-  loadActivity,
   loadConversationsSeries,
   loadMetrics,
   loadPipelineDonut,
   loadResponseTime,
 } from '@/lib/dashboard/queries'
 import type {
-  ActivityItem,
   ConversationsSeriesPoint,
   MetricsBundle,
   PipelineDonutData,
@@ -29,15 +27,18 @@ import type {
 
 import { MetricCard } from '@/components/dashboard/metric-card'
 import { SkeletonCard } from '@/components/dashboard/skeleton'
-import { QuickActions } from '@/components/dashboard/quick-actions'
 import { ConversationsChart } from '@/components/dashboard/conversations-chart'
 import { PipelineDonut } from '@/components/dashboard/pipeline-donut'
 import { ResponseTimeChart } from '@/components/dashboard/response-time-chart'
-import { ActivityFeed } from '@/components/dashboard/activity-feed'
+import { ProductRevenue } from '@/components/dashboard/product-revenue'
 import { SalesByAgent } from '@/components/dashboard/sales-by-agent'
 import { LeadOrigins } from '@/components/dashboard/lead-origins'
 
-type RangeDays = 7 | 30 | 90
+type RangeDays = number
+
+function dateInputValue(date: Date) {
+  return new Intl.DateTimeFormat('en-CA').format(date)
+}
 
 export default function DashboardPage() {
   const { defaultCurrency } = useAuth()
@@ -46,7 +47,7 @@ export default function DashboardPage() {
   const [metricsLoading, setMetricsLoading] = useState(true)
 
   const [range, setRange] = useState<RangeDays>(30)
-  const [series, setSeries] = useState<Record<RangeDays, ConversationsSeriesPoint[] | null>>({
+  const [series, setSeries] = useState<Record<number, ConversationsSeriesPoint[] | null>>({
     7: null,
     30: null,
     90: null,
@@ -58,9 +59,9 @@ export default function DashboardPage() {
 
   const [responseTime, setResponseTime] = useState<ResponseTimeSummary | null>(null)
   const [responseTimeLoading, setResponseTimeLoading] = useState(true)
-
-  const [activity, setActivity] = useState<ActivityItem[] | null>(null)
-  const [activityLoading, setActivityLoading] = useState(true)
+  const [periodMode, setPeriodMode] = useState<'preset' | 'custom'>('preset')
+  const [periodStart, setPeriodStart] = useState(() => dateInputValue(new Date(Date.now() - 29 * 86_400_000)))
+  const [periodEnd, setPeriodEnd] = useState(() => dateInputValue(new Date()))
 
   const loadAll = useCallback(() => {
     const db = createClient()
@@ -85,10 +86,6 @@ export default function DashboardPage() {
       .catch((err) => console.error('[dashboard] response time failed:', err))
       .finally(() => setResponseTimeLoading(false))
 
-    void loadActivity(db, 50)
-      .then((a) => setActivity(a))
-      .catch((err) => console.error('[dashboard] activity failed:', err))
-      .finally(() => setActivityLoading(false))
   }, [])
 
   useEffect(() => {
@@ -109,13 +106,55 @@ export default function DashboardPage() {
     [series],
   )
 
+  const applyCustomPeriod = useCallback(() => {
+    const start = new Date(`${periodStart}T00:00:00`)
+    const end = new Date(`${periodEnd}T00:00:00`)
+    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end < start) return
+    end.setDate(end.getDate() + 1)
+    const days = Math.max(1, Math.round((end.getTime() - start.getTime()) / 86_400_000))
+    setRange(days)
+    setSeriesLoading(true)
+    void loadConversationsSeries(createClient(), days, start.toISOString(), end.toISOString())
+      .then((data) => setSeries((previous) => ({ ...previous, [days]: data })))
+      .catch((err) => console.error('[dashboard] custom series failed:', err))
+      .finally(() => setSeriesLoading(false))
+  }, [periodStart, periodEnd])
+
   return (
     <div className="space-y-5">
-      <div>
-        <h1 className="text-2xl font-bold text-foreground">{t('title')}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          {t('subtitle')}
-        </p>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">{t('title')}</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {t('subtitle')}
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2 self-start text-sm text-muted-foreground sm:self-auto">
+          <span>Período</span>
+          <select
+            value={periodMode === 'custom' ? 'custom' : String(range)}
+            onChange={(event) => {
+              if (event.target.value === 'custom') return setPeriodMode('custom')
+              setPeriodMode('preset')
+              handleRangeChange(Number(event.target.value))
+            }}
+            className="h-9 rounded-lg border border-border bg-card px-3 text-sm font-medium text-foreground outline-none transition-colors hover:border-primary/50 focus:border-primary"
+            aria-label="Selecionar período do painel"
+          >
+            <option value={1}>Hoje</option>
+            <option value={7}>Últimos 7 dias</option>
+            <option value={30}>Últimos 30 dias</option>
+            <option value={90}>Últimos 90 dias</option>
+            <option value="custom">Personalizado</option>
+          </select>
+          {periodMode === 'custom' && (
+            <>
+              <input aria-label="Data inicial" type="date" value={periodStart} max={periodEnd} onChange={(event) => setPeriodStart(event.target.value)} className="h-9 rounded-lg border border-border bg-card px-2 text-sm text-foreground" />
+              <input aria-label="Data final" type="date" value={periodEnd} min={periodStart} max={dateInputValue(new Date())} onChange={(event) => setPeriodEnd(event.target.value)} className="h-9 rounded-lg border border-border bg-card px-2 text-sm text-foreground" />
+              <button type="button" onClick={applyCustomPeriod} className="h-9 rounded-lg bg-primary px-3 text-sm font-medium text-primary-foreground">Aplicar</button>
+            </>
+          )}
+        </div>
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -151,13 +190,13 @@ export default function DashboardPage() {
               subtitle={`${metrics.openDealsCount} ${t('open_deals')}`}
             />
             <MetricCard
-              title={t('messages_sent_today')}
-              value={metrics.messagesSentToday.current.toLocaleString()}
-              icon={Send}
+              title={t('tracked_conversions_today')}
+              value={metrics.trackedConversionsToday.current.toLocaleString()}
+              icon={Target}
               delta={{
-                sign: metrics.messagesSentToday.current - metrics.messagesSentToday.previous,
+                sign: metrics.trackedConversionsToday.current - metrics.trackedConversionsToday.previous,
                 label: deltaLabel(
-                  metrics.messagesSentToday.current - metrics.messagesSentToday.previous,
+                  metrics.trackedConversionsToday.current - metrics.trackedConversionsToday.previous,
                   t('vs_yesterday'),
                 ),
               }}
@@ -165,8 +204,6 @@ export default function DashboardPage() {
           </>
         )}
       </div>
-
-      <QuickActions />
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">
         <div className="h-full lg:col-span-3">
@@ -189,7 +226,7 @@ export default function DashboardPage() {
       <ResponseTimeChart data={responseTime} loading={responseTimeLoading} />
       <SalesByAgent />
       <LeadOrigins />
-      <ActivityFeed items={activity} loading={activityLoading} />
+      <ProductRevenue />
     </div>
   )
 }

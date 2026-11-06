@@ -51,6 +51,7 @@ export function ConversationList({
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<InboxFilter>("all");
   const [loading, setLoading] = useState(true);
+  const [assigneeNames, setAssigneeNames] = useState<Record<string, string>>({});
 
   // Keep the latest callback in a ref so the fetch effect below can
   // have a stable, empty-dep identity. Previously the fetch useCallback
@@ -74,10 +75,13 @@ export function ConversationList({
     let cancelled = false;
 
     (async () => {
-      const { data, error } = await supabase
-        .from("conversations")
-        .select("*, contact:contacts(*)")
-        .order("last_message_at", { ascending: false });
+      const [{ data, error }, { data: team }] = await Promise.all([
+        supabase
+          .from("conversations")
+          .select("*, contact:contacts(*)")
+          .order("last_message_at", { ascending: false }),
+        supabase.from("profiles").select("user_id, full_name"),
+      ]);
 
       if (cancelled) return;
 
@@ -94,6 +98,11 @@ export function ConversationList({
       }
 
       onConversationsLoadedRef.current(data ?? []);
+      setAssigneeNames(
+        Object.fromEntries(
+          (team ?? []).map((member) => [member.user_id, member.full_name || "Atendente"]),
+        ),
+      );
       setLoading(false);
     })();
 
@@ -208,6 +217,7 @@ export function ConversationList({
               <ConversationItem
                 key={conv.id}
                 conversation={conv}
+                assigneeName={conv.assigned_agent_id ? assigneeNames[conv.assigned_agent_id] : undefined}
                 isActive={conv.id === activeConversationId}
                 onSelect={handleSelect}
               />
@@ -221,12 +231,14 @@ export function ConversationList({
 
 interface ConversationItemProps {
   conversation: Conversation;
+  assigneeName?: string;
   isActive: boolean;
   onSelect: (conversation: Conversation) => void;
 }
 
 function ConversationItem({
   conversation,
+  assigneeName,
   isActive,
   onSelect,
 }: ConversationItemProps) {
@@ -248,7 +260,10 @@ function ConversationItem({
         : "Contato do WhatsApp";
   const finalDisplayName =
     displayName === "Contato do WhatsApp" ? resolvedDisplayName : displayName;
-  const initials = finalDisplayName.charAt(0).toUpperCase();
+  const nameParts = finalDisplayName.trim().split(/\s+/).filter(Boolean);
+  const initials = /\d/.test(finalDisplayName)
+    ? finalDisplayName.replace(/\D/g, "").slice(-2) || "WA"
+    : `${nameParts[0]?.charAt(0) || ""}${nameParts.length > 1 ? nameParts.at(-1)?.charAt(0) || "" : ""}`.toUpperCase();
 
   const handleClick = useCallback(() => {
     onSelect(conversation);
@@ -270,7 +285,7 @@ function ConversationItem({
       )}
     >
       {/* Avatar */}
-      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-muted text-sm font-medium text-foreground">
+      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-400 text-sm font-bold text-emerald-950 ring-2 ring-emerald-400/15">
         {contact?.avatar_url ? (
           <img
             src={contact.avatar_url}
@@ -278,7 +293,7 @@ function ConversationItem({
             className="h-10 w-10 rounded-full object-cover"
           />
         ) : finalDisplayName === "Número não disponibilizado" ? (
-          <UserRound className="h-4 w-4 text-muted-foreground" />
+          <UserRound className="h-4 w-4 text-emerald-950" />
         ) : (
           initials
         )}
@@ -298,13 +313,26 @@ function ConversationItem({
           </p>
           <div className="flex shrink-0 items-center gap-1.5">
             {conversation.unread_count > 0 && (
-              <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-primary-foreground">
+              <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-emerald-400 px-1 text-[10px] font-bold text-emerald-950">
                 {conversation.unread_count}
               </span>
             )}
           </div>
         </div>
         <div className="mt-1 flex flex-wrap gap-1">
+          {assigneeName && (
+            <span className="rounded-full bg-slate-500/15 px-1.5 py-0.5 text-[9px] font-medium text-slate-300">
+              Responsável: {assigneeName}
+            </span>
+          )}
+          {conversation.channel && conversation.channel !== "whatsapp" && (
+            <span className={`rounded-full px-1.5 py-0.5 text-[9px] font-medium ${conversation.channel === "instagram" ? "bg-pink-500/15 text-pink-300" : "bg-blue-500/15 text-blue-300"}`}>
+              {conversation.channel === "instagram" ? "Instagram" : "Messenger"}
+            </span>
+          )}
+          {conversation.channel === "whatsapp" && conversation.external_provider === "zernio" && (
+            <span className="rounded-full bg-emerald-500/15 px-1.5 py-0.5 text-[9px] font-medium text-emerald-300">WhatsApp oficial</span>
+          )}
           {contact?.lead_source && (
             <span className="rounded-full bg-violet-500/15 px-1.5 py-0.5 text-[9px] font-medium text-violet-300">
               {contact.lead_source === "meta_ads"

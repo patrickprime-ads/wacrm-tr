@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { decrypt } from '@/lib/whatsapp/encryption'
 import { normalizeStatus } from '@/lib/whatsapp/template-status-normalize'
+import { zernioRequest } from '@/lib/zernio/client'
 import type { TemplateButton, TemplateSampleValues } from '@/types'
 
 /**
@@ -150,64 +151,80 @@ export async function POST() {
       )
     }
 
-    const { data: config, error: configError } = await supabase
+    const { data: config } = await supabase
       .from('whatsapp_config')
       .select('*')
       .eq('account_id', accountId)
-      .single()
-
-    if (configError || !config) {
-      return NextResponse.json(
-        {
-          error:
-            'WhatsApp not configured. Connect your WhatsApp Business account in Settings first.',
-        },
-        { status: 400 },
-      )
-    }
-
-    if (!config.waba_id) {
-      return NextResponse.json(
-        {
-          error:
-            'WABA (WhatsApp Business Account) ID missing. Re-connect your account in Settings.',
-        },
-        { status: 400 },
-      )
-    }
-
-    const accessToken = decrypt(config.access_token)
+      .maybeSingle()
 
     const metaTemplates: MetaTemplate[] = []
-    let nextUrl:
-      | string
-      | null = `${META_API_BASE}/${config.waba_id}/message_templates?limit=100&fields=id,name,language,status,category,components,quality_score`
     const PAGE_CAP = 20
     let pageCount = 0
+    let truncated = false
 
-    while (nextUrl && pageCount < PAGE_CAP) {
-      pageCount++
-      const metaRes: Response = await fetch(nextUrl, {
-        headers: { Authorization: `Bearer ${accessToken}` },
-      })
+    if (config?.waba_id && config?.access_token) {
+      const accessToken = decrypt(config.access_token)
+      let nextUrl:
+        | string
+        | null = `${META_API_BASE}/${config.waba_id}/message_templates?limit=100&fields=id,name,language,status,category,components,quality_score`
 
-      if (!metaRes.ok) {
-        let metaErr = `Meta API error: ${metaRes.status}`
-        try {
-          const body = await metaRes.json()
-          if (body?.error?.message) metaErr = body.error.message
-        } catch {
-          // response wasn't JSON — keep the fallback
+      while (nextUrl && pageCount < PAGE_CAP) {
+        pageCount++
+        const metaRes: Response = await fetch(nextUrl, {
+          headers: { Authorization: `Bearer ${accessToken}` },
+        })
+
+        if (!metaRes.ok) {
+          let metaErr = `Meta API error: ${metaRes.status}`
+          try {
+            const body = await metaRes.json()
+            if (body?.error?.message) metaErr = body.error.message
+          } catch {
+            // response wasn't JSON — keep the fallback
+          }
+          return NextResponse.json({ error: metaErr }, { status: 502 })
         }
-        return NextResponse.json({ error: metaErr }, { status: 502 })
+
+        const metaBody: {
+          data?: MetaTemplate[]
+          paging?: { next?: string }
+        } = await metaRes.json()
+        if (metaBody.data) metaTemplates.push(...metaBody.data)
+        nextUrl = metaBody.paging?.next ?? null
+      }
+      truncated = pageCount >= PAGE_CAP && nextUrl !== null
+    } else {
+      const [{ data: zernioConfig }, { data: channels }] = await Promise.all([
+        supabase
+          .from('zernio_config')
+          .select('api_key_encrypted')
+          .eq('account_id', accountId)
+          .eq('status', 'connected')
+          .maybeSingle(),
+        supabase
+          .from('zernio_channels')
+          .select('zernio_account_id')
+          .eq('account_id', accountId)
+          .eq('platform', 'whatsapp')
+          .eq('is_active', true),
+      ])
+
+      if (!zernioConfig?.api_key_encrypted || !channels?.length) {
+        return NextResponse.json(
+          { error: 'Conecte um WhatsApp oficial pela Meta ou Zernio antes de sincronizar os modelos.' },
+          { status: 400 },
+        )
       }
 
-      const metaBody: {
-        data?: MetaTemplate[]
-        paging?: { next?: string }
-      } = await metaRes.json()
-      if (metaBody.data) metaTemplates.push(...metaBody.data)
-      nextUrl = metaBody.paging?.next ?? null
+      const apiKey = decrypt(zernioConfig.api_key_encrypted)
+      for (const channel of channels) {
+        const result = await zernioRequest(
+          apiKey,
+          `/whatsapp/templates?accountId=${encodeURIComponent(channel.zernio_account_id)}&limit=100`,
+        )
+        const templates = (result.data || result.templates || []) as MetaTemplate[]
+        metaTemplates.push(...templates)
+      }
     }
 
     let inserted = 0
@@ -307,7 +324,7 @@ export async function POST() {
       inserted,
       updated,
       errors,
-      truncated: pageCount >= PAGE_CAP && nextUrl !== null,
+      truncated,
     })
   } catch (error) {
     console.error('Error syncing WhatsApp templates:', error)

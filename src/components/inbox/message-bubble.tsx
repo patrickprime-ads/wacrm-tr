@@ -20,6 +20,7 @@ import { MessageReactions } from "./message-reactions";
 
 interface MessageBubbleProps {
   message: Message;
+  senderLabel?: string;
   /** Pre-computed quote info for messages that reply to another. */
   reply?: { authorLabel: string; preview: string } | null;
   reactions?: MessageReaction[];
@@ -243,6 +244,7 @@ function MessageContent({ message }: { message: Message }) {
 
 export function MessageBubble({
   message,
+  senderLabel,
   reply,
   reactions,
   currentUserId,
@@ -268,6 +270,11 @@ export function MessageBubble({
             : "rounded-bl-md bg-muted text-foreground",
         )}
       >
+        {isAgent && senderLabel && (
+          <div className="mb-1 text-[10px] font-semibold text-primary-foreground/80">
+            {senderLabel}
+          </div>
+        )}
         {reply && (
           <ReplyQuote
             authorLabel={reply.authorLabel}

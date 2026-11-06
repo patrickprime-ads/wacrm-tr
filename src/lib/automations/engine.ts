@@ -425,15 +425,38 @@ async function runStep(step: AutomationStep, args: ExecuteArgs): Promise<string>
       if (!args.contactId) throw new Error('assign_conversation needs a contact')
       let agentId = cfg.agent_id
       if (cfg.mode === 'round_robin') {
-        // Pick any member of the account. The existing implementation
-        // only ever returned the automation's author; preserving that
-        // shape until a real round-robin algorithm replaces it.
-        const { data: profiles } = await db
+        // Keep the workload balanced between sellers. A deterministic
+        // tie-break prevents every simultaneous run from favouring a
+        // different arbitrary row.
+        const { data: profiles, error: profilesError } = await db
           .from('profiles')
-          .select('user_id')
+          .select('user_id, created_at')
           .eq('account_id', args.automation.account_id)
-          .limit(1)
-        agentId = profiles?.[0]?.user_id
+          .eq('account_role', 'agent')
+        if (profilesError) throw profilesError
+
+        const { data: activeConversations, error: conversationsError } = await db
+          .from('conversations')
+          .select('assigned_agent_id')
+          .eq('account_id', args.automation.account_id)
+          .in('status', ['open', 'pending'])
+        if (conversationsError) throw conversationsError
+
+        const activeByAgent = new Map<string, number>()
+        for (const conversation of activeConversations ?? []) {
+          const assigned = conversation.assigned_agent_id as string | null
+          if (assigned) activeByAgent.set(assigned, (activeByAgent.get(assigned) ?? 0) + 1)
+        }
+
+        const orderedAgents = [...(profiles ?? [])].sort((left, right) => {
+          const workload =
+            (activeByAgent.get(left.user_id) ?? 0) -
+            (activeByAgent.get(right.user_id) ?? 0)
+          if (workload !== 0) return workload
+          const created = String(left.created_at ?? '').localeCompare(String(right.created_at ?? ''))
+          return created !== 0 ? created : left.user_id.localeCompare(right.user_id)
+        })
+        agentId = orderedAgents[0]?.user_id
       }
       if (!agentId) return 'no agent resolved'
       await db

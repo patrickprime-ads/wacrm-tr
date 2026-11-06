@@ -65,7 +65,7 @@ const SECURITY_HEADERS = [
 
 const LOCALIZED_ROUTES = [
   { internal: "/dashboard", public: "/painel" },
-  { internal: "/pipelines", public: "/pipeline-de-vendas" },
+  { internal: "/pipelines", public: "/crm" },
   { internal: "/inbox", public: "/caixa-de-entrada" },
   { internal: "/contacts", public: "/contatos" },
   { internal: "/lead-scoring", public: "/pontuacao-de-leads" },
@@ -84,20 +84,51 @@ const LOCALIZED_ROUTES = [
 ] as const;
 
 const nextConfig: NextConfig = {
-  async redirects() {
-    return LOCALIZED_ROUTES.map((route) => ({
-      source: `${route.internal}/:path*`,
-      destination: `${route.public}/:path*`,
+    outputFileTracingExcludes: {
+    "/*": [
+      "node_modules/next/dist/compiled/@vercel/og/**/*",
+    ],
+  },
+  
+async redirects() {
+  return [
+    {
+      source: "/pipeline-de-vendas",
+      destination: "/crm",
+      permanent: true,
+    },
+    {
+      source: "/pipeline-de-vendas/:path+",
+      destination: "/crm/:path+",
+      permanent: true,
+    },
+    ...LOCALIZED_ROUTES.flatMap((route) => [
+    {
+      source: route.internal,
+      destination: route.public,
       permanent: false,
-    }));
-  },
+    },
+    {
+      source: `${route.internal}/:path+`,
+      destination: `${route.public}/:path+`,
+      permanent: false,
+    },
+    ]),
+  ];
+},
 
-  async rewrites() {
-    return LOCALIZED_ROUTES.map((route) => ({
-      source: `${route.public}/:path*`,
-      destination: `${route.internal}/:path*`,
-    }));
-  },
+async rewrites() {
+  return LOCALIZED_ROUTES.flatMap((route) => [
+    {
+      source: route.public,
+      destination: route.internal,
+    },
+    {
+      source: `${route.public}/:path+`,
+      destination: `${route.internal}/:path+`,
+    },
+  ]);
+},
 
   /**
    * Cache-Control policy.

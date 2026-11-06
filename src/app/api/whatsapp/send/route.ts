@@ -23,6 +23,7 @@ import type { MessageTemplate } from '@/types'
 import { isMessageTemplate } from '@/lib/whatsapp/template-row-guard'
 import { scheduleFollowup } from '@/lib/ai/followups'
 import { evolutionRequest, type EvolutionConfig } from '@/lib/evolution/client'
+import { zernioRequest } from '@/lib/zernio/client'
 
 export async function POST(request: Request) {
   try {
@@ -151,10 +152,123 @@ export async function POST(request: Request) {
     }
 
     const contact = conversation.contact
+
+    const requireOpenCustomerWindow = async () => {
+      if (message_type === 'template') return null
+
+      const { data: lastCustomerMessage, error: windowError } = await supabase
+        .from('messages')
+        .select('created_at')
+        .eq('conversation_id', conversation_id)
+        .eq('sender_type', 'customer')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+
+      if (windowError) throw windowError
+      const lastCustomerAt = lastCustomerMessage?.created_at
+        ? new Date(lastCustomerMessage.created_at).getTime()
+        : 0
+      const windowIsOpen =
+        lastCustomerAt > 0 && Date.now() - lastCustomerAt < 24 * 60 * 60 * 1000
+
+      if (windowIsOpen) return null
+      return NextResponse.json(
+        {
+          error:
+            'A janela de 24 horas do WhatsApp foi encerrada. Use um modelo aprovado para voltar a falar com este contato.',
+          code: 'WHATSAPP_CUSTOMER_WINDOW_CLOSED',
+        },
+        { status: 409 },
+      )
+    }
+
+    // Zernio conversations carry their remote conversation/account IDs.
+    // Route them before phone validation because Instagram/Messenger
+    // contacts use a platform identifier instead of an E.164 phone.
+    if (conversation.external_provider === 'zernio') {
+      const windowResponse = await requireOpenCustomerWindow()
+      if (windowResponse) return windowResponse
+
+      const { data: zernioConfig } = await supabase
+        .from('zernio_config')
+        .select('api_key_encrypted')
+        .eq('account_id', accountId)
+        .maybeSingle()
+      if (!zernioConfig || !conversation.external_conversation_id || !conversation.external_account_id) {
+        return NextResponse.json({ error: 'Canal Zernio não está configurado corretamente.' }, { status: 400 })
+      }
+      try {
+        const payload: Record<string, unknown> = { accountId: conversation.external_account_id }
+        if (message_type === 'template') {
+          const structured = (template_message_params ?? {}) as {
+            body?: unknown
+            headerText?: unknown
+            buttonParams?: unknown
+          }
+          const components: Record<string, unknown>[] = []
+          const bodyValues = Array.isArray(structured.body)
+            ? structured.body.filter((value): value is string => typeof value === 'string')
+            : Array.isArray(template_params)
+              ? template_params.filter((value: unknown): value is string => typeof value === 'string')
+              : []
+
+          if (typeof structured.headerText === 'string' && structured.headerText) {
+            components.push({
+              type: 'header',
+              parameters: [{ type: 'text', text: structured.headerText }],
+            })
+          }
+          if (bodyValues.length) {
+            components.push({
+              type: 'body',
+              parameters: bodyValues.map((value) => ({ type: 'text', text: value })),
+            })
+          }
+          if (structured.buttonParams && typeof structured.buttonParams === 'object') {
+            for (const [index, value] of Object.entries(structured.buttonParams)) {
+              if (typeof value !== 'string' || !value) continue
+              components.push({
+                type: 'button',
+                sub_type: 'url',
+                index,
+                parameters: [{ type: 'text', text: value }],
+              })
+            }
+          }
+
+          payload.template = {
+            elements: [{
+              name: template_name,
+              language: template_language || 'pt_BR',
+              ...(components.length ? { components } : {}),
+            }],
+          }
+        } else if (content_text) {
+          payload.message = content_text
+        }
+        if (isMediaKind) {
+          payload.attachmentUrl = media_url
+          payload.attachmentType = message_type === 'document' ? 'file' : message_type
+          if (filename) payload.attachmentName = filename
+        }
+        const result = await zernioRequest(decrypt(zernioConfig.api_key_encrypted), `/inbox/conversations/${encodeURIComponent(conversation.external_conversation_id)}/messages`, { method: 'POST', body: JSON.stringify(payload) })
+        const data = (result.data || result) as Record<string, unknown>
+        const externalId = String(data.messageId || data.id || crypto.randomUUID())
+        const { data: messageRecord, error: messageError } = await supabase.from('messages').insert({ conversation_id, sender_type: 'agent', sender_id: user.id, content_type: message_type, content_text: content_text || null, media_url: media_url || null, template_name: template_name || null, message_id: externalId, status: 'sent', reply_to_message_id: reply_to_message_id || null }).select('id').single()
+        if (messageError) throw messageError
+        await supabase.from('conversations').update({ last_message_text: content_text || `[${message_type}]`, last_message_at: new Date().toISOString(), updated_at: new Date().toISOString(), assigned_agent_id: conversation.assigned_agent_id || user.id }).eq('id', conversation_id)
+        await scheduleFollowup(supabaseAdmin(), accountId, conversation_id, contact.id)
+        return NextResponse.json({ success: true, message_id: messageRecord.id, whatsapp_message_id: externalId, transport: 'zernio' })
+      } catch (error) {
+        return NextResponse.json({ error: `Zernio: ${error instanceof Error ? error.message : 'falha no envio'}` }, { status: 502 })
+      }
+    }
+
     if (!contact?.phone) {
       return NextResponse.json(
-        { error: 'Contact phone number not found' },
-        { status: 400 }
+        { error: 'Número de telefone do contato não encontrado.' },
+        { status: 400 },
       )
     }
 
@@ -176,7 +290,11 @@ export async function POST(request: Request) {
       .eq('account_id', accountId)
       .maybeSingle()
 
-    if (evolutionConfig) {
+    const useEvolution =
+      conversation.external_provider === 'evolution' ||
+      (!conversation.external_provider && Boolean(evolutionConfig))
+
+    if (useEvolution && evolutionConfig) {
       if (message_type === 'template') {
         return NextResponse.json(
           { error: 'Templates da Meta não estão disponíveis na conexão por QR Code.' },
@@ -207,11 +325,11 @@ export async function POST(request: Request) {
         const externalId = key?.id || String(result.messageId || crypto.randomUUID())
         const { data: messageRecord, error: messageError } = await supabase
           .from('messages')
-          .insert({ conversation_id, sender_type: 'agent', content_type: message_type, content_text: content_text || null, media_url: media_url || null, message_id: externalId, status: 'sent', reply_to_message_id: reply_to_message_id || null })
+          .insert({ conversation_id, sender_type: 'agent', sender_id: user.id, content_type: message_type, content_text: content_text || null, media_url: media_url || null, message_id: externalId, status: 'sent', reply_to_message_id: reply_to_message_id || null })
           .select('id')
           .single()
         if (messageError) throw messageError
-        await supabase.from('conversations').update({ last_message_text: content_text || `[${message_type}]`, last_message_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq('id', conversation_id)
+        await supabase.from('conversations').update({ last_message_text: content_text || `[${message_type}]`, last_message_at: new Date().toISOString(), updated_at: new Date().toISOString(), assigned_agent_id: conversation.assigned_agent_id || user.id }).eq('id', conversation_id)
         await scheduleFollowup(supabaseAdmin(), accountId, conversation_id, contact.id)
         return NextResponse.json({ success: true, message_id: messageRecord.id, whatsapp_message_id: externalId, transport: 'evolution' })
       } catch (error) {
@@ -219,6 +337,9 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: `Evolution API: ${message}` }, { status: 502 })
       }
     }
+
+    const windowResponse = await requireOpenCustomerWindow()
+    if (windowResponse) return windowResponse
 
     // Fetch and decrypt WhatsApp config
     const { data: config, error: configError } = await supabase
@@ -424,6 +545,7 @@ export async function POST(request: Request) {
       .insert({
         conversation_id,
         sender_type: 'agent',
+        sender_id: user.id,
         content_type: message_type,
         content_text: content_text || null,
         media_url: media_url || null,
@@ -450,6 +572,7 @@ export async function POST(request: Request) {
         last_message_text: content_text || `[${message_type}]`,
         last_message_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
+        assigned_agent_id: conversation.assigned_agent_id || user.id,
       })
       .eq('id', conversation_id)
 

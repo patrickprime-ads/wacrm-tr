@@ -53,8 +53,8 @@ export default function ForgotPasswordPage() {
               Verifique seu e-mail
             </CardTitle>
             <CardDescription className="text-muted-foreground">
-              We&apos;ve sent a password reset link to{" "}
-              <span className="text-foreground">{email}</span>. Verifique sua caixa de entrada.
+              Enviamos um link de redefinição para{" "}
+              <span className="text-foreground">{email}</span>. Verifique também a pasta de spam.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -81,7 +81,7 @@ export default function ForgotPasswordPage() {
           </div>
           <CardTitle className="text-xl text-foreground">Redefinir senha</CardTitle>
           <CardDescription className="text-muted-foreground">
-            Enter your email and we&apos;ll send you a reset link
+            Informe seu e-mail para receber o link de redefinição
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -99,7 +99,7 @@ export default function ForgotPasswordPage() {
               <Input
                 id="email"
                 type="email"
-                placeholder="you@example.com"
+                placeholder="seuemail@exemplo.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
@@ -112,7 +112,7 @@ export default function ForgotPasswordPage() {
               disabled={loading}
               className="mt-2 h-10 w-full bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
             >
-              {loading ? "Enviando..." : "Enviar link de redefini??o"}
+              {loading ? "Enviando..." : "Enviar link de redefinição"}
             </Button>
           </form>
 

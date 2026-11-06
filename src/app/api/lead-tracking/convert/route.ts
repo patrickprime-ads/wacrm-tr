@@ -9,12 +9,17 @@ const hash = (value: string) => crypto.createHash("sha256").update(value.trim().
 export async function POST(request: Request) {
   try {
     const ctx = await requireRole("agent");
-    const body = await request.json() as { contact_id?: string; status?: string };
+    const body = await request.json() as { contact_id?: string; status?: string; value?: number };
     if (!body.contact_id || !body.status || !ALLOWED.has(body.status)) return NextResponse.json({ error: "Contato ou conversão inválida" }, { status: 400 });
     const { data: contact, error } = await ctx.supabase.from("contacts").select("id,phone,email,click_id,lead_source").eq("id", body.contact_id).eq("account_id", ctx.accountId).single();
     if (error || !contact) return NextResponse.json({ error: "Lead não encontrado" }, { status: 404 });
-    const convertedAt = body.status === "lead" || body.status === "lost" ? null : new Date().toISOString();
-    const { error: updateError } = await ctx.supabase.from("contacts").update({ conversion_status: body.status, converted_at: convertedAt }).eq("id", contact.id);
+    // Curioso fica somente no CRM. As demais classificações geram um sinal
+    // explícito para a plataforma de anúncios.
+    const convertedAt = body.status === "lead" ? null : new Date().toISOString();
+    const conversionValue = body.status === "customer" && Number.isFinite(body.value)
+      ? Math.max(0, Number(body.value))
+      : null;
+    const { error: updateError } = await ctx.supabase.from("contacts").update({ conversion_status: body.status, converted_at: convertedAt, conversion_value: conversionValue }).eq("id", contact.id);
     if (updateError) throw updateError;
     const { data: settings } = await ctx.supabase
       .from("lead_tracking_settings")
@@ -25,10 +30,20 @@ export async function POST(request: Request) {
       .maybeSingle();
     let meta: "sent" | "not_configured" | "failed" = "not_configured";
     if (settings?.meta_enabled && settings.meta_pixel_id && settings.meta_access_token_encrypted && convertedAt) {
+      const metaEventName = body.status === "customer"
+        ? "Purchase"
+        : body.status === "lost"
+          ? "DisqualifiedLead"
+          : "QualifiedLead";
+      const metaLeadStatus = body.status === "customer"
+        ? "customer"
+        : body.status === "lost"
+          ? "disqualified"
+          : "qualified";
       const userData: Record<string, unknown> = { ph: [hash(contact.phone.replace(/\D/g, ""))], external_id: [hash(contact.id)] };
       if (contact.email) userData.em = [hash(contact.email)];
       if (contact.click_id?.startsWith("fb.")) userData.fbc = contact.click_id;
-      const response = await fetch(`https://graph.facebook.com/v21.0/${encodeURIComponent(settings.meta_pixel_id)}/events?access_token=${encodeURIComponent(decrypt(settings.meta_access_token_encrypted))}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ data: [{ event_name: settings.conversion_event || "QualifiedLead", event_time: Math.floor(Date.now() / 1000), action_source: "business_messaging", event_id: `${contact.id}-${body.status}`, user_data: userData, custom_data: { lead_status: body.status } }] }), signal: AbortSignal.timeout(15_000) });
+      const response = await fetch(`https://graph.facebook.com/v21.0/${encodeURIComponent(settings.meta_pixel_id)}/events?access_token=${encodeURIComponent(decrypt(settings.meta_access_token_encrypted))}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ data: [{ event_name: metaEventName, event_time: Math.floor(Date.now() / 1000), action_source: "business_messaging", event_id: `${contact.id}-${body.status}`, user_data: userData, custom_data: { lead_status: metaLeadStatus, currency: "BRL", ...(conversionValue !== null ? { value: conversionValue } : {}) } }] }), signal: AbortSignal.timeout(15_000) });
       meta = response.ok ? "sent" : "failed";
     }
     let google: "sent" | "not_configured" | "failed" = "not_configured";
@@ -42,6 +57,7 @@ export async function POST(request: Request) {
       settings.google_conversion_action &&
       settings.google_access_token_encrypted &&
       convertedAt &&
+      body.status !== "lost" &&
       googleClickId
     ) {
       const customerId = settings.google_customer_id.replace(/\D/g, "");

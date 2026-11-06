@@ -10,6 +10,7 @@ describe("moeda brasileira", () => {
   it("formata valores em reais", () => {
     expect(formatCurrency(1234)).toContain("R$");
     expect(formatCurrency(1234)).toContain("1.234");
+    expect(formatCurrency(1234, "USD")).toContain("R$");
   });
 
   it("abrevia valores em reais", () => {

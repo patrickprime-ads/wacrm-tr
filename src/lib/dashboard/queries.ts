@@ -37,11 +37,12 @@ export async function loadMetrics(db: DB): Promise<MetricsBundle> {
     openConvCur,
     newConvToday,
     newConvYesterday,
-    newContactsToday,
-    newContatosYesterday,
+    contacts,
+    conversations,
+    incomingMessages,
     openDeals,
-    messagesToday,
-    messagesYesterday,
+    trackedConversionsToday,
+    trackedConversionsYesterday,
   ] = await Promise.all([
     db.from('conversations').select('id', { count: 'exact', head: true }).eq('status', 'open'),
     db
@@ -55,28 +56,57 @@ export async function loadMetrics(db: DB): Promise<MetricsBundle> {
       .eq('status', 'open')
       .gte('created_at', yesterdayStart)
       .lt('created_at', todayStart),
-    db.from('contacts').select('id', { count: 'exact', head: true }).gte('created_at', todayStart),
+    db
+      .from('contacts')
+      .select('id, created_at'),
+    db
+      .from('conversations')
+      .select('id, contact_id'),
+    db
+      .from('messages')
+      .select('conversation_id, created_at')
+      .eq('sender_type', 'customer'),
+    db.from('deals').select('value, status').eq('status', 'open'),
     db
       .from('contacts')
       .select('id', { count: 'exact', head: true })
-      .gte('created_at', yesterdayStart)
-      .lt('created_at', todayStart),
-    db.from('deals').select('value, status').eq('status', 'open'),
+      .in('conversion_status', ['qualified_lead', 'customer', 'lost'])
+      .gte('updated_at', todayStart),
     db
-      .from('messages')
+      .from('contacts')
       .select('id', { count: 'exact', head: true })
-      .eq('sender_type', 'agent')
-      .gte('created_at', todayStart),
-    db
-      .from('messages')
-      .select('id', { count: 'exact', head: true })
-      .eq('sender_type', 'agent')
-      .gte('created_at', yesterdayStart)
-      .lt('created_at', todayStart),
+      .in('conversion_status', ['qualified_lead', 'customer', 'lost'])
+      .gte('updated_at', yesterdayStart)
+      .lt('updated_at', todayStart),
   ])
 
   const openDealsRows = (openDeals.data ?? []) as { value: number | null }[]
   const openDealsValue = openDealsRows.reduce((sum, d) => sum + (d.value ?? 0), 0)
+
+  // A lead's entry date is its first inbound message, not the date at
+  // which a connector happened to import it. Manual contacts keep their
+  // own creation date as the fallback.
+  const contactForConversation = new Map<string, string>()
+  for (const row of (conversations.data ?? []) as { id: string; contact_id: string | null }[]) {
+    if (row.contact_id) contactForConversation.set(row.id, row.contact_id)
+  }
+  const firstEntryAt = new Map<string, number>()
+  for (const row of (contacts.data ?? []) as { id: string; created_at: string }[]) {
+    const time = new Date(row.created_at).getTime()
+    if (!Number.isNaN(time)) firstEntryAt.set(row.id, time)
+  }
+  for (const row of (incomingMessages.data ?? []) as { conversation_id: string; created_at: string }[]) {
+    const contactId = contactForConversation.get(row.conversation_id)
+    const time = new Date(row.created_at).getTime()
+    if (!contactId || Number.isNaN(time)) continue
+    const existing = firstEntryAt.get(contactId)
+    if (existing === undefined || time < existing) firstEntryAt.set(contactId, time)
+  }
+  const countEntries = (start: string, end?: string) => {
+    const from = new Date(start).getTime()
+    const until = end ? new Date(end).getTime() : Number.POSITIVE_INFINITY
+    return [...firstEntryAt.values()].filter((time) => time >= from && time < until).length
+  }
 
   return {
     activeConversations: {
@@ -87,14 +117,14 @@ export async function loadMetrics(db: DB): Promise<MetricsBundle> {
       previous: (newConvToday.count ?? 0) - (newConvYesterday.count ?? 0),
     },
     newContactsToday: {
-      current: newContactsToday.count ?? 0,
-      previous: newContatosYesterday.count ?? 0,
+      current: countEntries(todayStart),
+      previous: countEntries(yesterdayStart, todayStart),
     },
     openDealsValue,
     openDealsCount: openDealsRows.length,
-    messagesSentToday: {
-      current: messagesToday.count ?? 0,
-      previous: messagesYesterday.count ?? 0,
+    trackedConversionsToday: {
+      current: trackedConversionsToday.count ?? 0,
+      previous: trackedConversionsYesterday.count ?? 0,
     },
   }
 }
@@ -104,16 +134,18 @@ export async function loadMetrics(db: DB): Promise<MetricsBundle> {
 export async function loadConversationsSeries(
   db: DB,
   rangeDays: number,
+  customStart?: string,
+  customEnd?: string,
 ): Promise<ConversationsSeriesPoint[]> {
-  const start = daysAgoStart(rangeDays - 1).toISOString()
-  const { data, error } = await db
-    .from('messages')
-    .select('created_at, sender_type')
-    .gte('created_at', start)
-    .order('created_at', { ascending: true })
+  const start = customStart ?? daysAgoStart(rangeDays - 1).toISOString()
+  let query = db.from('messages').select('created_at, sender_type').gte('created_at', start)
+  if (customEnd) query = query.lt('created_at', customEnd)
+  const { data, error } = await query.order('created_at', { ascending: true })
   if (error) throw error
 
-  const keys = lastNDayKeys(rangeDays)
+  const keys = customStart && customEnd
+    ? dayKeysFromRange(customStart, customEnd)
+    : lastNDayKeys(rangeDays)
   const buckets = new Map<string, { incoming: number; outgoing: number }>()
   for (const k of keys) buckets.set(k, { incoming: 0, outgoing: 0 })
 
@@ -126,6 +158,17 @@ export async function loadConversationsSeries(
   }
 
   return keys.map((day) => ({ day, ...(buckets.get(day) ?? { incoming: 0, outgoing: 0 }) }))
+}
+
+function dayKeysFromRange(start: string, endExclusive: string): string[] {
+  const keys: string[] = []
+  const cursor = startOfLocalDay(new Date(start))
+  const end = new Date(endExclusive)
+  while (cursor < end) {
+    keys.push(localDayKey(cursor))
+    cursor.setDate(cursor.getDate() + 1)
+  }
+  return keys
 }
 
 // --- 3. Pipeline donut -------------------------------------------------

@@ -40,11 +40,11 @@ const ACTIONS: Action[] = [
     icon: Zap,
     tint: 'text-primary',
   },
-];
+].filter((action) => action.href !== '/broadcasts/new' && action.href !== '/automations/new');
 
 export function QuickActions() {
   return (
-    <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
       {ACTIONS.map((a) => {
         const Icon = a.icon;
         return (
