@@ -4,7 +4,9 @@ import { useEffect, useRef, type ReactNode } from 'react';
 import Link from 'next/link';
 
 import { cn } from '@/lib/utils';
+import { useAuth } from '@/hooks/use-auth';
 import {
+  isSectionVisible,
   RAIL_GROUPS,
   PUBLIC_SECTION_SLUG,
   SECTION_META,
@@ -31,6 +33,7 @@ export function SettingsRail({
   hints?: Partial<Record<SettingsSection, ReactNode>>;
 }) {
   const activeRef = useRef<HTMLAnchorElement>(null);
+  const { isMasterAdmin } = useAuth();
 
   // When horizontal (mobile), keep the active chip in view. On desktop
   // the rail is a static column, so skip.
@@ -55,7 +58,7 @@ export function SettingsRail({
     >
       {RAIL_GROUPS.map(({ label, group }) => {
         const items = SETTINGS_SECTIONS.filter(
-          (s) => SECTION_META[s].group === group,
+          (s) => SECTION_META[s].group === group && isSectionVisible(s, isMasterAdmin),
         );
         return (
           <div

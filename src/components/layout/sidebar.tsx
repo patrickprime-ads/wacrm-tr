@@ -203,7 +203,7 @@ const bottomNavItems = [
         {/* Logo row. On mobile we put a close button here; on desktop the
             close button is hidden since the sidebar is always-visible. */}
         <div className="flex h-14 shrink-0 items-center justify-between gap-2 border-b border-border px-4">
-          <Link href="/painel" className="flex items-center gap-2" aria-label="Prime Mídia Digital">
+          <Link href="/painel" className="flex flex-col items-start gap-0.5" aria-label="CRM Prime Mídia">
             {/* Logo branca: no tema claro é invertida para ficar escura. */}
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
@@ -211,8 +211,11 @@ const bottomNavItems = [
               alt="Prime Mídia Digital"
               width={773}
               height={224}
-              className="h-8 w-auto invert dark:invert-0"
+              className="h-5 w-auto invert dark:invert-0"
             />
+            <span className="text-[10px] font-medium leading-none tracking-wide text-muted-foreground">
+              CRM Prime Mídia
+            </span>
           </Link>
           <button
             type="button"

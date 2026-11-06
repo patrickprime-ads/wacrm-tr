@@ -43,6 +43,17 @@ export const SETTINGS_SECTIONS = [
 
 export type SettingsSection = (typeof SETTINGS_SECTIONS)[number];
 
+/**
+ * Seções escondidas para os clientes (Prime, 05/11/2026): o CRM é focado no
+ * Kanban de vendas, a moeda é sempre BRL e não usamos modelos/fluxos aqui.
+ * O Admin Master continua vendo tudo.
+ */
+export const CLIENT_HIDDEN_SECTIONS: readonly SettingsSection[] = ['flows', 'templates', 'deals'];
+
+export function isSectionVisible(section: SettingsSection, isMasterAdmin: boolean): boolean {
+  return isMasterAdmin || !CLIENT_HIDDEN_SECTIONS.includes(section);
+}
+
 export const DEFAULT_SECTION: SettingsSection = 'overview';
 
 export const PUBLIC_SECTION_SLUG: Record<SettingsSection, string> = {
