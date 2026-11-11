@@ -14,10 +14,20 @@ import {
 
 export const metadata: Metadata = {
   title: {
-    default: "wacrm",
-    template: "%s — wacrm",
+    default: "Prime CRM",
+    template: "%s — Prime CRM",
   },
-  description: "Self-hostable CRM template for WhatsApp.",
+  description: "CRM de vendas da Prime Mídia Digital: leads, Kanban e relatórios da sua equipe.",
+  applicationName: "Prime CRM",
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "https://wacrm-tr.agencia-primemd.workers.dev"),
+  openGraph: {
+    title: "Prime CRM",
+    description: "CRM de vendas da Prime Mídia Digital: leads, Kanban e relatórios da sua equipe.",
+    siteName: "Prime CRM",
+    locale: "pt_BR",
+    type: "website",
+    images: [{ url: "/logo-prime.png", width: 773, height: 224, alt: "Prime Mídia Digital" }],
+  },
   robots: {
     index: false,
     follow: false,
