@@ -70,6 +70,7 @@ function SignupPageInner() {
         return;
       }
 
+      if (body.entrou) { window.location.href = "/dashboard"; return; }
       setSuccess(true);
     } catch {
       setError("Não foi possível conectar ao serviço de autenticação. Verifique a configuração do Supabase e tente novamente.");
