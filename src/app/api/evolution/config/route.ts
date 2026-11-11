@@ -302,11 +302,11 @@ export async function POST(request: Request) {
     if (body.action === 'save') {
       const serverUrl = safeServerUrl(body.server_url?.trim() || '');
       const instanceName = body.instance_name?.trim() || '';
-      if (!/^[a-zA-Z0-9_-]{3,50}$/.test(instanceName))
+      if (instanceName.length < 2 || instanceName.length > 80 || /[\/?#%]/.test(instanceName))
         return NextResponse.json(
           {
             error:
-              'Use de 3 a 50 letras, números, hífen ou sublinhado no nome da instância.',
+              'Nome da instância inválido: use o nome exatamente como aparece na Evolution (sem / ? # %).',
           },
           { status: 400 }
         );
