@@ -38,12 +38,20 @@ const dataValida = (v: unknown) => { const d = new Date(String(v ?? "")); return
 export async function POST(request: Request) {
   try {
     const ctx = await getCurrentAccount();
-    if (!canEditSettings(ctx.role)) return NextResponse.json({ ok: false, error: "Só o dono ou um admin pode importar." }, { status: 403 });
-    const body = (await request.json().catch(() => null)) as { leads?: LeadLegado[] } | null;
+    const body = (await request.json().catch(() => null)) as { leads?: LeadLegado[]; account_id?: string } | null;
+    // Admin Master pode importar para qualquer conta (escolhe na tela); os demais, só na própria.
+    const { data: eu } = await supabaseAdmin().from("profiles").select("is_master_admin").eq("user_id", ctx.userId).maybeSingle();
+    const master = !!eu?.is_master_admin;
+    if (!master && !canEditSettings(ctx.role)) return NextResponse.json({ ok: false, error: "Só o dono ou um admin pode importar." }, { status: 403 });
     const leads = (body?.leads ?? []).slice(0, 25).filter((l) => /^\d{10,15}$/.test(String(l?.telefone)) && txt(l?.chave));
     if (!leads.length) return NextResponse.json({ ok: false, error: "Nenhum lead válido no lote." }, { status: 400 });
     const db = supabaseAdmin();
-    const conta = ctx.accountId;
+    let conta = ctx.accountId;
+    if (master && body?.account_id && body.account_id !== ctx.accountId) {
+      const { data: alvo } = await db.from("accounts").select("id").eq("id", body.account_id).maybeSingle();
+      if (!alvo) return NextResponse.json({ ok: false, error: "Conta de destino não encontrada." }, { status: 404 });
+      conta = String(alvo.id);
+    }
 
     // 1. Funil e etapas (cria as que faltarem, no fim).
     let { data: funil } = await db.from("pipelines").select("id").eq("account_id", conta).order("created_at", { ascending: true }).limit(1).maybeSingle();
