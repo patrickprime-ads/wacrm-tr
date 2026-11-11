@@ -88,7 +88,7 @@ export default function ImportarPage() {
           </select>
           {contaId && (
             <div className="space-y-2">
-              <p className="text-muted-foreground">Convite para vendedora (login próprio, papel Atendente, vale 7 dias):</p>
+              <p className="text-muted-foreground">Convite para vendedora (login próprio, função Vendedor(a), vale 7 dias):</p>
               <div className="flex gap-2">
                 <input value={nomeVendedora} onChange={(e) => setNomeVendedora(e.target.value)} placeholder="Nome (ex.: Fabi)" className="flex-1 rounded-lg border bg-background px-3 py-2" />
                 <Button type="button" variant="outline" onClick={() => void convidar()}>Gerar link</Button>

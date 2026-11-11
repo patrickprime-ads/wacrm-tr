@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 
 /** Painel Master → Acessos: ver os logins de uma empresa e gerar senha temporária nova (Prime, 11/11/2026). */
 type Usuario = { user_id: string; full_name: string | null; email: string; account_role: string | null };
-const PAPEL: Record<string, string> = { owner: "Dono", admin: "Admin", agent: "Atendente", viewer: "Leitura" };
+const PAPEL: Record<string, string> = { owner: "Dono", admin: "Admin", agent: "Vendedor(a)", viewer: "Leitura" };
 
 export function AcessosDialog({ contas }: { contas: { id: string; name: string }[] }) {
   const [contaId, setContaId] = useState("");

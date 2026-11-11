@@ -49,16 +49,16 @@ interface InviteMemberDialogProps {
 }
 
 const EXPIRY_OPTIONS: { value: string; label: string }[] = [
-  { value: '1', label: '1 day' },
+  { value: '1', label: '1 dia' },
   { value: '7', label: '7 dias' },
   { value: '30', label: '30 dias' },
 ];
 
 const ROLE_DESCRIPTIONS: Record<InviteRole, string> = {
   admin:
-    'Can invite teammates, manage settings, send messages, and edit data.',
+    'Pode convidar pessoas, mexer nas configurações, enviar mensagens e editar tudo.',
   agent:
-    'Can user? the inbox, contacts, broadcasts, automations, and flows. No settings or member access.',
+    'Atende os leads: Kanban, contatos, conversas e follow-ups. Não mexe nas configurações nem na equipe.',
   viewer: 'Acesso somente leitura em todas as páginas. Não pode enviar nem editar nada.',
 };
 
@@ -122,7 +122,7 @@ export function InviteMemberDialog({
 
       if (!res.ok) {
         const payload = await res.json().catch(() => ({}));
-        toast.error(payload.error || 'Failed to create invitation');
+        toast.error(payload.error || 'Não consegui criar o convite');
         return;
       }
 
@@ -145,7 +145,7 @@ export function InviteMemberDialog({
       onCreated();
     } catch (err) {
       console.error('[InviteMemberDialog] create error:', err);
-      toast.error('Could not reach the server. Try again');
+      toast.error('Sem conexão com o servidor. Tente de novo');
     } finally {
       setSubmitting(false);
     }
@@ -155,12 +155,12 @@ export function InviteMemberDialog({
     if (!result) return;
     try {
       await navigator.clipboard.writeText(result.url);
-      toast.success('Invite link copied');
+      toast.success('Link do convite copiado');
     } catch {
       // Most likely "not in a secure context" — happens on http://
       // local IPs. Surface the link in the toast so the admin can
       // hand-copy it.
-      toast.error('Clipboard blocked — copy the link manually');
+      toast.error('Não deu para copiar automaticamente — copie o link à mão');
     }
   }
 
@@ -170,7 +170,7 @@ export function InviteMemberDialog({
     // for users in multi-team contexts where "our wacrm account"
     // wouldn't be enough to disambiguate.
     const accountName = result?.accountName ?? 'our wacrm account';
-    const message = `Join ${accountName} on wacrm using this link (valid for ${result?.expiresInDays} days): ${url}`;
+    const message = `Seu acesso ao CRM da ${accountName}: crie seu login por este link (vale ${result?.expiresInDays} dias): ${url}`;
     return `https://wa.me/?text=${encodeURIComponent(message)}`;
   }
 
@@ -191,7 +191,7 @@ export function InviteMemberDialog({
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2 text-popover-foreground">
                 <Sparkles className="size-4 text-primary" />
-                Invite created
+                Convite criado
               </DialogTitle>
               <DialogDescription className="text-muted-foreground">
                 Share this link with your new teammate. They&apos;ll be able
@@ -199,14 +199,14 @@ export function InviteMemberDialog({
                 <span className="font-medium text-muted-foreground">{result.role}</span>
                 . The link is valid for{' '}
                 <span className="font-medium text-muted-foreground">
-                  {result.expiresInDays} day{result.expiresInDays === 1 ? '' : 's'}
+                  {result.expiresInDays} dia{result.expiresInDays === 1 ? '' : 's'}
                 </span>
                 .
               </DialogDescription>
             </DialogHeader>
 
             <div className="space-y-3 py-2">
-              <Label className="text-muted-foreground">Invite link</Label>
+              <Label className="text-muted-foreground">Link do convite</Label>
               <div className="flex gap-2">
                 <Input
                   readOnly
@@ -220,7 +220,7 @@ export function InviteMemberDialog({
                   className="bg-primary hover:bg-primary/90 text-primary-foreground shrink-0"
                 >
                   <Copy className="size-4" />
-                  Copy
+                  Copiar
                 </Button>
               </div>
 
@@ -231,11 +231,11 @@ export function InviteMemberDialog({
                   intro, amber-200 for the body. */}
               <div className="rounded-md border border-amber-500/50 bg-amber-500/15 px-3 py-2 text-xs text-amber-200">
                 <strong className="font-semibold text-amber-100">
-                  Save this link now.
+                  Salve este link agora.
                 </strong>{' '}
-                We never store the plaintext — once you close this dialog
-                the URL is gone. To re-share, revoke this invite and create
-                a new one.
+                Por segurança o link não fica guardado: ao fechar esta janela
+                ele some. Para mandar de novo, cancele este convite e gere
+                outro.
               </div>
 
               {/* Anchor styled with `buttonVariants` rather than wrapping
@@ -254,7 +254,7 @@ export function InviteMemberDialog({
                 })}
               >
                 <MessageCircle className="size-4" />
-                Send via WhatsApp
+                Enviar pelo WhatsApp
               </a>
             </div>
 
@@ -263,23 +263,23 @@ export function InviteMemberDialog({
                 onClick={() => onOpenChange(false)}
                 className="bg-primary hover:bg-primary/90 text-primary-foreground"
               >
-                Done
+                Pronto
               </Button>
             </DialogFooter>
           </>
         ) : (
           <>
             <DialogHeader>
-              <DialogTitle className="text-popover-foreground">Invite a teammate</DialogTitle>
+              <DialogTitle className="text-popover-foreground">Convidar para a equipe</DialogTitle>
               <DialogDescription className="text-muted-foreground">
-                Generate a one-time invite link. Share it via WhatsApp,
-                Slack, or any channel you like — no email service required.
+                Gere um link de convite de uso único e mande pelo WhatsApp.
+                A pessoa cria o próprio login com e-mail e senha.
               </DialogDescription>
             </DialogHeader>
 
             <div className="space-y-4 py-2">
               <div className="space-y-2">
-                <Label className="text-muted-foreground">Role</Label>
+                <Label className="text-muted-foreground">Função</Label>
                 <Select
                   value={role}
                   onValueChange={(v) => v && setRole(v as InviteRole)}
@@ -289,7 +289,7 @@ export function InviteMemberDialog({
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="admin">Administrador</SelectItem>
-                    <SelectItem value="agent">Agente</SelectItem>
+                    <SelectItem value="agent">Vendedor(a)</SelectItem>
                     <SelectItem value="viewer">Visualizador</SelectItem>
                   </SelectContent>
                 </Select>
@@ -299,7 +299,7 @@ export function InviteMemberDialog({
               </div>
 
               <div className="space-y-2">
-                <Label className="text-muted-foreground">Link valid for</Label>
+                <Label className="text-muted-foreground">Link vale por (dias)</Label>
                 <Select
                   value={expiry}
                   onValueChange={(v) => v && setExpiry(v)}
@@ -319,19 +319,19 @@ export function InviteMemberDialog({
 
               <div className="space-y-2">
                 <Label className="text-muted-foreground">
-                  Label{' '}
+                  Nome{' '}
                   <span className="text-xs text-muted-foreground">(opcional)</span>
                 </Label>
                 <Input
-                  placeholder="e.g. Sara — support team"
+                  placeholder="ex.: Fabi — vendedora"
                   value={label}
                   onChange={(e) => setLabel(e.target.value)}
                   maxLength={MAX_LABEL_LEN}
                   className="bg-muted border-border text-foreground placeholder:text-muted-foreground"
                 />
                 <p className="text-xs text-muted-foreground">
-                  Helps you remember who you sent the link to in the pending
-                  list below.
+                  Para lembrar para quem você mandou o link (aparece na lista de
+                  convites pendentes).
                 </p>
               </div>
             </div>
@@ -352,10 +352,10 @@ export function InviteMemberDialog({
                 {submitting ? (
                   <>
                     <Loader2 className="size-4 animate-spin" />
-                    Creating...
+                    Gerando...
                   </>
                 ) : (
-                  'Generate link'
+                  'Gerar link'
                 )}
               </Button>
             </DialogFooter>
