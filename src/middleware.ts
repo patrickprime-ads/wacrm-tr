@@ -89,6 +89,7 @@ export async function middleware(request: NextRequest) {
     '/fluxos',
     '/integracoes',
     '/whatsapp',
+    '/importar',
   ]
 
   if (

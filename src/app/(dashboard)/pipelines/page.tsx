@@ -109,13 +109,16 @@ export default function PipelinesPage() {
 
   const loadDeals = useCallback(
     async (pipelineId: string) => {
-      const { data } = await supabase
+      const base = () => supabase
         .from('deals')
         .select(
           '*, contact:contacts(*), assignee:profiles!deals_assigned_to_fkey(*)'
         )
         .eq('pipeline_id', pipelineId)
         .order('created_at', { ascending: false });
+      // Arquivados (ex.: importados da planilha antiga) ficam fora do Kanban, mas contam nos relatórios.
+      const filtrado = await base().eq('archived', false);
+      const { data } = filtrado.error ? await base() : filtrado;
       return (data ?? []) as Deal[];
     },
     [supabase]
