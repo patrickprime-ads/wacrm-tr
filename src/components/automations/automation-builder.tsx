@@ -266,7 +266,7 @@ function TagSelect({
   if (tags.length === 0) {
     return (
       <Input
-        placeholder="Tag id"
+        placeholder="ID da tag"
         value={value}
         onChange={(e) => onChange(e.target.value)}
         className="bg-muted text-foreground"
@@ -327,7 +327,7 @@ function ContactFieldSelect({
       <option value="email">E-mail</option>
       <option value="company">Empresa</option>
       {customFields.length > 0 && (
-        <optgroup label="Custom fields">
+        <optgroup label="Campos personalizados">
           {customFields.map((f) => (
             <option key={f.id} value={`custom:${f.id}`}>
               {f.field_name}
@@ -355,7 +355,7 @@ function AgentSelect({
   if (members.length === 0) {
     return (
       <Input
-        placeholder="Agent id"
+        placeholder="ID do vendedor"
         value={value}
         onChange={(e) => onChange(e.target.value)}
         className="bg-muted text-foreground"
@@ -502,7 +502,7 @@ export function AutomationBuilder({ initial }: { initial: BuilderInitial }) {
     setSaving(true)
     try {
       const payload = {
-        name: state.name || "Untitled automation",
+        name: state.name || "Automação sem nome",
         description: state.description || null,
         trigger_type: state.trigger_type,
         trigger_config: state.trigger_config,
@@ -564,7 +564,7 @@ export function AutomationBuilder({ initial }: { initial: BuilderInitial }) {
         <input
           value={state.name}
           onChange={(e) => patchTop("name", e.target.value)}
-          placeholder="Untitled automation"
+          placeholder="Automação sem nome"
           className="min-w-0 flex-1 rounded-md bg-transparent px-2 py-1 text-sm font-semibold text-foreground placeholder:text-muted-foreground focus:bg-muted focus:outline-none sm:text-base"
         />
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -692,7 +692,7 @@ function TriggerCard({
             )}
             {type === "time_based" && (
               <Input
-                placeholder="Cron expression or HH:mm"
+                placeholder="Horário (HH:mm), ex.: 09:00"
                 value={(config.schedule as string) ?? ""}
                 onChange={(e) =>
                   onConfigChange({ ...config, schedule: e.target.value })
@@ -999,7 +999,7 @@ function AddButton({ onPick }: { onPick: (t: AutomationStepType) => void }) {
       <DropdownMenu>
         <DropdownMenuTrigger
           className="flex h-8 w-8 items-center justify-center rounded-full border-2 border-dashed border-border bg-background text-muted-foreground transition-colors hover:border-primary hover:bg-primary/10 hover:text-primary data-[popup-open]:border-primary data-[popup-open]:bg-primary/20 data-[popup-open]:text-primary"
-          aria-label="Add step"
+          aria-label="Adicionar etapa"
         >
           <Plus className="h-4 w-4" />
         </DropdownMenuTrigger>
@@ -1041,11 +1041,11 @@ function StepEditor({
   switch (step.step_type) {
     case "send_message":
       return (
-        <FieldBlock label="Message text">
+        <FieldBlock label="Texto da mensagem">
           <Textarea
             value={(cfg.text as string) ?? ""}
             onChange={(e) => set({ text: e.target.value })}
-            placeholder="Hi! Thanks for reaching out…"
+            placeholder="Olá! Obrigado pelo contato…"
             className="min-h-24 bg-muted text-foreground"
           />
         </FieldBlock>
@@ -1071,18 +1071,18 @@ function StepEditor({
     case "assign_conversation":
       return (
         <>
-          <FieldBlock label="Mode">
+          <FieldBlock label="Modo">
             <select
               value={(cfg.mode as string) ?? "round_robin"}
               onChange={(e) => set({ mode: e.target.value })}
               className="w-full rounded-md border border-border bg-muted px-2 py-1.5 text-sm text-foreground"
             >
               <option value="round_robin">Rodízio</option>
-              <option value="specific">Agente específico</option>
+              <option value="specific">Vendedor(a) específico(a)</option>
             </select>
           </FieldBlock>
           {cfg.mode === "specific" && (
-            <FieldBlock label="Agent">
+            <FieldBlock label="Vendedor(a)">
               <AgentSelect
                 value={(cfg.agent_id as string) ?? ""}
                 onChange={(v) => set({ agent_id: v })}
@@ -1094,17 +1094,17 @@ function StepEditor({
     case "update_contact_field":
       return (
         <>
-          <FieldBlock label="Field">
+          <FieldBlock label="Campo">
             <ContactFieldSelect
               value={(cfg.field as string) ?? "name"}
               onChange={(v) => set({ field: v })}
             />
           </FieldBlock>
-          <FieldBlock label="Value">
+          <FieldBlock label="Valor">
             <Input
               value={(cfg.value as string) ?? ""}
               onChange={(e) => set({ value: e.target.value })}
-              placeholder="Text or {{ vars.x }} / {{ message.text }}"
+              placeholder="Texto ou {{ message.text }}"
               className="bg-muted text-foreground"
             />
           </FieldBlock>
@@ -1147,7 +1147,7 @@ function StepEditor({
     case "wait":
       return (
         <div className="grid grid-cols-2 gap-2">
-          <FieldBlock label="Amount">
+          <FieldBlock label="Quantidade">
             <Input
               type="number"
               min={1}
@@ -1156,7 +1156,7 @@ function StepEditor({
               className="bg-muted text-foreground"
             />
           </FieldBlock>
-          <FieldBlock label="Unit">
+          <FieldBlock label="Unidade">
             <select
               value={(cfg.unit as string) ?? "hours"}
               onChange={(e) => set({ unit: e.target.value })}
@@ -1172,7 +1172,7 @@ function StepEditor({
     case "condition":
       return (
         <>
-          <FieldBlock label="Subject">
+          <FieldBlock label="Verificar">
             <select
               value={(cfg.subject as string) ?? "tag_presence"}
               onChange={(e) => set({ subject: e.target.value })}
@@ -1184,7 +1184,7 @@ function StepEditor({
               <option value="time_of_day">Hora do dia</option>
             </select>
           </FieldBlock>
-          <FieldBlock label="Operand">
+          <FieldBlock label="Operador">
             <Input
               placeholder={
                 cfg.subject === "time_of_day"
@@ -1201,7 +1201,7 @@ function StepEditor({
             />
           </FieldBlock>
           {(cfg.subject === "contact_field" || cfg.subject === "message_content") && (
-            <FieldBlock label="Value">
+            <FieldBlock label="Valor">
               <Input
                 value={(cfg.value as string) ?? ""}
                 onChange={(e) => set({ value: e.target.value })}
@@ -1221,7 +1221,7 @@ function StepEditor({
               className="bg-muted text-foreground"
             />
           </FieldBlock>
-          <FieldBlock label="Body template (JSON)">
+          <FieldBlock label="Corpo (JSON)">
             <Textarea
               value={(cfg.body_template as string) ?? ""}
               onChange={(e) => set({ body_template: e.target.value })}
@@ -1259,15 +1259,15 @@ function FieldBlock({
 function previewFor(step: BuilderStep): string {
   switch (step.step_type) {
     case "send_message":
-      return (step.step_config.text as string) || "no text yet"
+      return (step.step_config.text as string) || "sem texto ainda"
     case "send_template":
-      return (step.step_config.template_name as string) || "pick a template"
+      return (step.step_config.template_name as string) || "escolha um modelo"
     case "wait":
-      return `${step.step_config.amount ?? "?"} ${step.step_config.unit ?? ""}`
+      return `${step.step_config.amount ?? "?"} ${({ minutes: "minutos", hours: "horas", days: "dias" } as Record<string, string>)[String(step.step_config.unit)] ?? ""}`
     case "condition":
-      return `when ${step.step_config.subject ?? "?"}`
+      return `se ${step.step_config.subject ?? "?"}`
     case "send_webhook":
-      return (step.step_config.url as string) || "no url"
+      return (step.step_config.url as string) || "sem URL"
     default:
       return ""
   }

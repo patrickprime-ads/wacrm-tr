@@ -44,7 +44,7 @@ export const AUTOMATION_TEMPLATES: Record<TemplateSlug, AutomationTemplateDefini
       {
         step_type: 'send_message',
         step_config: {
-          text: "Hi! ðŸ‘‹ Thanks for reaching out. We'll get back to you shortly.",
+          text: "Olá! 👋 Obrigado pelo contato. Já vamos te responder.",
         },
       },
       {
@@ -71,7 +71,7 @@ export const AUTOMATION_TEMPLATES: Record<TemplateSlug, AutomationTemplateDefini
         step_type: 'send_message',
         step_config: {
           text:
-            "Thanks for your message! Our team is offline right now (9amâ€“6pm) and will reply first thing tomorrow.",
+            "Obrigado pela mensagem! Nosso horário de atendimento é das 9h às 18h. Amanhã logo cedo a gente te responde.",
         },
         parent_index: 0,
         branch: 'yes',
@@ -84,7 +84,7 @@ export const AUTOMATION_TEMPLATES: Record<TemplateSlug, AutomationTemplateDefini
     description: 'Faça perguntas de qualificação para filtrar leads recebidos.',
     trigger_type: 'keyword_match',
     trigger_config: {
-      keywords: ['pricing', 'quote', 'buy'],
+      keywords: ['valor', 'preço', 'quanto custa'],
       match_type: 'contains',
     },
     steps: [
@@ -92,7 +92,7 @@ export const AUTOMATION_TEMPLATES: Record<TemplateSlug, AutomationTemplateDefini
         step_type: 'send_message',
         step_config: {
           text:
-            "Great â€” happy to help with pricing! Quick question: roughly how many seats are you looking for?",
+            "Que bom! Vou te passar os valores. Só uma pergunta rápida: é para você ou para mais pessoas da família?",
         },
       },
       {
@@ -120,7 +120,7 @@ export const AUTOMATION_TEMPLATES: Record<TemplateSlug, AutomationTemplateDefini
         step_type: 'send_message',
         step_config: {
           text:
-            "Just circling back â€” did you have any other questions for us? Happy to help!",
+            "Oi! Passando para saber se ficou alguma dúvida. Estou aqui para ajudar!",
         },
       },
     ],
