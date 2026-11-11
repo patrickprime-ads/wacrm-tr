@@ -32,9 +32,6 @@ export const metadata: Metadata = {
     index: false,
     follow: false,
   },
-  icons: {
-    icon: [{ url: "/icon" }],
-  },
   formatDetection: {
     email: false,
     address: false,
