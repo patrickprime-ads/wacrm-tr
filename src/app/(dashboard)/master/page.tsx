@@ -6,6 +6,7 @@ import { FeatureAccessDialog } from "@/components/master/feature-access-dialog";
 import { PlanManagerDialog } from "@/components/master/plan-manager-dialog";
 import { InboundTokenDialog } from "@/components/master/inbound-token-dialog";
 import { CreateAccountDialog } from "@/components/master/create-account-dialog";
+import { AcessosDialog } from "@/components/master/acessos-dialog";
 import Link from "next/link";
 import { formatCurrency } from "@/lib/currency";
 import type { FeatureKey, Plan } from "@/lib/features";
@@ -27,7 +28,7 @@ export default function MasterPage() {
   const cards = [["Empresas", data.totals.accounts, Building2], ["Vendedores", data.totals.sellers, Users], ["Contatos", data.totals.contacts, UserRound], ["Vendas totais", formatCurrency(data.totals.revenue), DollarSign]] as const;
 
   return <div className="space-y-6">
-    <div className="flex items-start justify-between gap-4"><div><p className="text-xs font-semibold uppercase tracking-widest text-primary">Admin Master</p><h1 className="text-2xl font-bold">Visão geral das empresas</h1><p className="text-sm text-muted-foreground">Resultados e acessos de todos os clientes.</p></div><div className="flex flex-wrap items-center justify-end gap-2"><Link href="/importar" className="inline-flex h-8 items-center rounded-lg border px-3 text-sm hover:bg-muted">Importar planilha / convidar vendedores</Link><PlanManagerDialog /><CreateAccountDialog onSuccess={() => setRecarregar(n => n + 1)} /></div></div>
+    <div className="flex items-start justify-between gap-4"><div><p className="text-xs font-semibold uppercase tracking-widest text-primary">Admin Master</p><h1 className="text-2xl font-bold">Visão geral das empresas</h1><p className="text-sm text-muted-foreground">Resultados e acessos de todos os clientes.</p></div><div className="flex flex-wrap items-center justify-end gap-2"><Link href="/importar" className="inline-flex h-8 items-center rounded-lg border px-3 text-sm hover:bg-muted">Importar planilha / convidar vendedores</Link><AcessosDialog contas={data.accounts.map(a => ({ id: a.id, name: a.name }))} /><PlanManagerDialog /><CreateAccountDialog onSuccess={() => setRecarregar(n => n + 1)} /></div></div>
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">{cards.map(([label, value, Icon]) => <div key={label} className="rounded-xl border bg-card p-4"><Icon className="h-5 w-5 text-primary" /><p className="mt-3 text-xs text-muted-foreground">{label}</p><strong className="text-xl">{value}</strong></div>)}</div>
     <div className="overflow-hidden rounded-xl border bg-card">
       <div className="border-b p-4 font-semibold">Desempenho e acessos por empresa</div>
