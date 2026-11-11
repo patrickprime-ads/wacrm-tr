@@ -1,4 +1,5 @@
 "use client";
+import { detalheDoAnuncio, origemDoLead } from '@/lib/lead-origin';
 
 import { useState, useEffect, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
@@ -224,6 +225,23 @@ export function ContactSidebar({ contact, conversationId }: ContactSidebarProps)
             </button>
 
           </div>
+
+          {/* Prime: de onde o lead veio (anúncio, rede, campanha) */}
+          {(() => {
+            const o = origemDoLead(contact);
+            const d = detalheDoAnuncio(contact);
+            if (!o) return null;
+            return (
+              <div className="mt-3 rounded-xl border border-border p-3 text-left">
+                <div className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">De onde veio</div>
+                <span className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium ${o.classe}`}>{o.rotulo}</span>
+                {d.campanha && <p className="mt-2 text-xs text-muted-foreground">Campanha: <span className="text-foreground">{d.campanha}</span></p>}
+                {d.anuncio && <p className="mt-1 text-xs text-muted-foreground">Anúncio: <span className="text-foreground">{d.anuncio}</span></p>}
+                {d.link && <a href={d.link} target="_blank" rel="noreferrer noopener" className="mt-2 inline-flex text-xs font-medium text-primary hover:underline">Ver o anúncio →</a>}
+                {!o.anuncio && !d.campanha && <p className="mt-2 text-xs text-muted-foreground">Chamou direto, sem anúncio identificado.</p>}
+              </div>
+            );
+          })()}
 
           {/* Divider */}
           <div className="my-4 border-t border-border" />

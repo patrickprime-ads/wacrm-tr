@@ -1,4 +1,5 @@
 "use client";
+import { origemDoLead } from "@/lib/lead-origin";
 
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
@@ -333,17 +334,9 @@ function ConversationItem({
           {conversation.channel === "whatsapp" && conversation.external_provider === "zernio" && (
             <span className="rounded-full bg-emerald-500/15 px-1.5 py-0.5 text-[9px] font-medium text-emerald-300">WhatsApp oficial</span>
           )}
-          {contact?.lead_source && (
-            <span className="rounded-full bg-violet-500/15 px-1.5 py-0.5 text-[9px] font-medium text-violet-300">
-              {contact.lead_source === "meta_ads"
-                ? `Meta · ${contact.source_detail || "Anúncio"}`
-                : contact.lead_source === "google_ads"
-                  ? "Google Ads"
-                  : contact.lead_source === "whatsapp"
-                    ? "WhatsApp"
-                    : contact.lead_source}
-            </span>
-          )}
+          {(() => { const o = origemDoLead(contact); return o ? (
+            <span className={`rounded-full px-1.5 py-0.5 text-[9px] font-medium ${o.classe}`}>{o.rotulo}</span>
+          ) : null; })()}
           {contact?.lead_temperature && (
             <span className="rounded-full bg-primary/10 px-1.5 py-0.5 text-[9px] font-medium text-primary">
               {contact.lead_temperature.charAt(0).toUpperCase() +

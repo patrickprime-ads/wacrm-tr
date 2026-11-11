@@ -1,4 +1,5 @@
 'use client';
+import { origemDoLead } from '@/lib/lead-origin';
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import Link from 'next/link';
@@ -1123,17 +1124,9 @@ export function MessageThread({
             <p className="text-muted-foreground truncate text-xs">
               {displayPhone}
             </p>
-            {contact.lead_source && (
-              <span className="bg-primary/10 text-primary mt-0.5 inline-flex rounded-full px-1.5 py-0.5 text-[9px] font-medium">
-                {contact.lead_source === 'meta_ads'
-                  ? `Meta · ${contact.source_detail || contact.utm_content || 'Anúncio'}`
-                  : contact.lead_source === 'google_ads'
-                    ? 'Google Ads'
-                    : contact.lead_source === 'whatsapp'
-                      ? 'WhatsApp'
-                      : contact.lead_source}
-              </span>
-            )}
+            {(() => { const o = origemDoLead(contact); return o ? (
+              <span className={`mt-0.5 inline-flex rounded-full px-1.5 py-0.5 text-[9px] font-medium ${o.classe}`}>{o.rotulo}</span>
+            ) : null; })()}
             <div className="mt-1 flex flex-wrap gap-1">
               {contact.lead_temperature && (
                 <span className="bg-amber-500/10 text-amber-300 inline-flex rounded-full px-1.5 py-0.5 text-[9px] font-medium">

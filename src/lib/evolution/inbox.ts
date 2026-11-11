@@ -60,24 +60,24 @@ function contentType(data: EvolutionMessage) {
 }
 
 function adReferral(data: EvolutionMessage) {
-  const message = data.message ?? {};
-  const extended = message.extendedTextMessage as
-    | {
-        contextInfo?: {
-          externalAdReply?: {
-            title?: string;
-            body?: string;
-            sourceUrl?: string;
-            mediaUrl?: string;
-          };
-        };
-      }
-    | undefined;
-  const ad = extended?.contextInfo?.externalAdReply;
+  // Prime: o "externalAdReply" do anúncio pode vir em qualquer tipo de mensagem (texto, imagem...) ou direto em data.contextInfo.
+  type Ad = { title?: string; body?: string; sourceUrl?: string; mediaUrl?: string; sourceId?: string; sourceApp?: string; sourceType?: string };
+  const achar = (valor: unknown, fundo = 0): Ad | null => {
+    if (!valor || typeof valor !== "object" || fundo > 4) return null;
+    const r = valor as Record<string, unknown>;
+    if (r.externalAdReply && typeof r.externalAdReply === "object") return r.externalAdReply as Ad;
+    for (const v of Object.values(r)) { const a = achar(v, fundo + 1); if (a) return a; }
+    return null;
+  };
+  const ad = achar({ m: data.message ?? {}, c: (data as { contextInfo?: unknown }).contextInfo });
   if (!ad) return null;
+  const url = ad.sourceUrl || ad.mediaUrl || null;
+  const rede = /instagram/i.test(`${ad.sourceApp || ""} ${url || ""}`) ? "instagram" : "facebook";
   return {
     label: ad.title?.trim() || ad.body?.trim() || "Anúncio Meta",
-    url: ad.sourceUrl || ad.mediaUrl || null,
+    url,
+    rede,
+    adId: ad.sourceId ? String(ad.sourceId).slice(0, 60) : null,
   };
 }
 
@@ -194,7 +194,8 @@ export async function importEvolutionMessage(accountId: string, data: EvolutionM
                 lead_source: "meta_ads",
                 source_detail: referral.label,
                 source_url: referral.url,
-                utm_source: "meta",
+                utm_source: referral.rede,
+                ...(referral.adId ? { ad_id: referral.adId } : {}),
                 utm_medium: "paid_social",
                 utm_content: referral.label,
               }
@@ -241,7 +242,8 @@ export async function importEvolutionMessage(accountId: string, data: EvolutionM
         lead_source: referral ? "meta_ads" : "whatsapp",
         source_detail: referral?.label || "WhatsApp Business",
         source_url: referral?.url || null,
-        utm_source: referral ? "meta" : null,
+        utm_source: referral ? referral.rede : null,
+        ad_id: referral?.adId || null,
         utm_medium: referral ? "paid_social" : null,
         utm_content: referral?.label || null,
       })
@@ -267,7 +269,8 @@ export async function importEvolutionMessage(accountId: string, data: EvolutionM
                 lead_source: "meta_ads",
                 source_detail: referral.label,
                 source_url: referral.url,
-                utm_source: "meta",
+                utm_source: referral.rede,
+                ...(referral.adId ? { ad_id: referral.adId } : {}),
                 utm_medium: "paid_social",
                 utm_content: referral.label,
               }
