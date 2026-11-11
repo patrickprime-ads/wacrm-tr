@@ -52,6 +52,18 @@ function safeServerUrl(raw: string) {
   return url.origin;
 }
 
+/** Prime: guarda o webhook que já estava na instância (ex.: painel de rastreio) para o CRM repassar as mensagens. */
+async function preservarWebhookAnterior(config: ConfigRow, instance: string, salvar: (url: string) => Promise<unknown>) {
+  try {
+    const hook = await evolution(config, `/webhook/find/${instance}`);
+    const webhook = (hook.webhook ?? hook) as Record<string, unknown>;
+    const url = String(webhook.url || '');
+    if (webhook.enabled !== false && /^https:\/\//.test(url) && !url.includes('/api/evolution/webhook')) await salvar(url);
+  } catch {
+    /* sem webhook anterior ou versão antiga da Evolution */
+  }
+}
+
 async function evolution(config: ConfigRow, path: string, init?: RequestInit) {
   const response = await fetch(`${config.server_url}${path}`, {
     ...init,
@@ -354,6 +366,7 @@ export async function POST(request: Request) {
         throw new Error(
           'Salve novamente a configuração para gerar a segurança do webhook.'
         );
+      await preservarWebhookAnterior(config as ConfigRow, instance, async (url) => { await supabase.from('evolution_config').update({ forward_url: url }).eq('account_id', accountId); });
       await evolution(config as ConfigRow, `/webhook/set/${instance}`, {
         method: 'POST',
         body: JSON.stringify({
@@ -384,6 +397,7 @@ export async function POST(request: Request) {
         .from('evolution_config')
         .update({ webhook_secret_encrypted: encrypt(freshSecret) })
         .eq('account_id', accountId);
+      await preservarWebhookAnterior(config as ConfigRow, instance, async (url) => { await supabase.from('evolution_config').update({ forward_url: url }).eq('account_id', accountId); });
       await evolution(config as ConfigRow, `/webhook/set/${instance}`, {
         method: 'POST',
         body: JSON.stringify({

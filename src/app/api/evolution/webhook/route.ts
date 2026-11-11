@@ -10,7 +10,8 @@ import {
 export async function POST(request: Request) {
   try {
     const token = new URL(request.url).searchParams.get("token");
-    const payload = await request.json() as {
+    const bruto = await request.text();
+    const payload = JSON.parse(bruto || "{}") as {
       event?: string;
       instance?: string;
       data?:
@@ -37,6 +38,13 @@ export async function POST(request: Request) {
       .toLowerCase()
       .replaceAll("_", ".")
       .replaceAll("-", ".");
+    // Prime: repassa as mensagens para o webhook que já existia (painel de rastreio), sem atrasar o CRM.
+    const forwardUrl = event === "messages.upsert"
+      ? ((await db.from("evolution_config").select("forward_url").eq("account_id", config.account_id).maybeSingle()).data as { forward_url?: string | null } | null)?.forward_url
+      : null;
+    if (forwardUrl) {
+      await fetch(forwardUrl, { method: "POST", headers: { "Content-Type": "application/json" }, body: bruto, signal: AbortSignal.timeout(5000) }).catch(() => null);
+    }
     if (event === "connection.update") {
       const state = String((payload.data as { state?: string })?.state || "disconnected");
       await db.from("evolution_config").update({ status: state }).eq("account_id", config.account_id);
