@@ -335,7 +335,7 @@ function ConversationItem({
             <span className="rounded-full bg-emerald-500/15 px-1.5 py-0.5 text-[9px] font-medium text-emerald-300">WhatsApp oficial</span>
           )}
           {(() => { const o = origemDoLead(contact); return o ? (
-            <span className={`rounded-full px-1.5 py-0.5 text-[9px] font-medium ${o.classe}`}>{o.rotulo}</span>
+            <><span className={`rounded-full px-1.5 py-0.5 text-[9px] font-medium ${o.classeTipo}`}>{o.tipo}</span><span className={`rounded-full px-1.5 py-0.5 text-[9px] font-medium ${o.classe}`}>{o.rotulo}</span></>
           ) : null; })()}
           {contact?.lead_temperature && (
             <span className="rounded-full bg-primary/10 px-1.5 py-0.5 text-[9px] font-medium text-primary">

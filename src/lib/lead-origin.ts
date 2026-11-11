@@ -14,7 +14,7 @@ type ContatoOrigem = {
   click_id?: string | null;
 };
 
-export type Origem = { rotulo: string; classe: string; anuncio: boolean };
+export type Origem = { rotulo: string; classe: string; anuncio: boolean; tipo: string; classeTipo: string };
 
 const CLASSES = {
   facebook: "bg-blue-500/15 text-blue-400",
@@ -24,16 +24,17 @@ const CLASSES = {
   neutro: "bg-muted text-muted-foreground",
 };
 
+/** Origem do lead em duas etiquetas: tipo (Anúncio / Orgânico) e rede (Facebook, Instagram, Google, Site, WhatsApp). */
 export function origemDoLead(c: ContatoOrigem | null | undefined): Origem | null {
   if (!c) return null;
   const tudo = [c.lead_source, c.utm_source, c.utm_medium, c.source_url, c.source_detail].filter(Boolean).join(" ").toLowerCase();
   const pago = c.lead_source === "meta_ads" || c.lead_source === "google_ads" || /paid|cpc|ads/.test(String(c.utm_medium || ""));
-  if (c.lead_source === "google_ads" || /google|gclid/.test(tudo)) return { rotulo: "Google Ads", classe: CLASSES.google, anuncio: true };
-  if (/instagram|\big\b/.test(tudo)) return { rotulo: pago ? "Instagram · anúncio" : "Instagram", classe: CLASSES.instagram, anuncio: pago };
-  if (c.lead_source === "meta_ads" || /facebook|fb\.me|\bfb\b|\bmeta\b/.test(tudo)) return { rotulo: pago ? "Facebook · anúncio" : "Facebook", classe: CLASSES.facebook, anuncio: pago };
-  if (/site|landing|organic_search|seo/.test(tudo)) return { rotulo: "Site", classe: CLASSES.site, anuncio: false };
-  if (c.lead_source === "whatsapp" || !c.lead_source) return { rotulo: "WhatsApp direto", classe: CLASSES.neutro, anuncio: false };
-  return { rotulo: String(c.lead_source), classe: CLASSES.neutro, anuncio: false };
+  const tipo = pago ? { tipo: "Anúncio", classeTipo: "bg-emerald-500/15 text-emerald-500", anuncio: true } : { tipo: "Orgânico", classeTipo: "bg-muted text-muted-foreground", anuncio: false };
+  if (c.lead_source === "google_ads" || /google|gclid/.test(tudo)) return { rotulo: "Google", classe: CLASSES.google, ...tipo };
+  if (/instagram|\big\b/.test(tudo)) return { rotulo: "Instagram", classe: CLASSES.instagram, ...tipo };
+  if (c.lead_source === "meta_ads" || /facebook|fb\.me|\bfb\b|\bmeta\b/.test(tudo)) return { rotulo: "Facebook", classe: CLASSES.facebook, ...tipo };
+  if (/site|landing|organic_search|seo/.test(tudo)) return { rotulo: "Site", classe: CLASSES.site, ...tipo };
+  return { rotulo: "WhatsApp", classe: CLASSES.neutro, ...tipo };
 }
 
 /** Nome do anúncio/campanha para mostrar junto da origem. */

@@ -1125,7 +1125,7 @@ export function MessageThread({
               {displayPhone}
             </p>
             {(() => { const o = origemDoLead(contact); return o ? (
-              <span className={`mt-0.5 inline-flex rounded-full px-1.5 py-0.5 text-[9px] font-medium ${o.classe}`}>{o.rotulo}</span>
+              <span className="mt-0.5 inline-flex gap-1"><span className={`rounded-full px-1.5 py-0.5 text-[9px] font-medium ${o.classeTipo}`}>{o.tipo}</span><span className={`rounded-full px-1.5 py-0.5 text-[9px] font-medium ${o.classe}`}>{o.rotulo}</span></span>
             ) : null; })()}
             <div className="mt-1 flex flex-wrap gap-1">
               {contact.lead_temperature && (

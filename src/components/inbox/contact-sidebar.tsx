@@ -234,7 +234,7 @@ export function ContactSidebar({ contact, conversationId }: ContactSidebarProps)
             return (
               <div className="mt-3 rounded-xl border border-border p-3 text-left">
                 <div className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">De onde veio</div>
-                <span className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium ${o.classe}`}>{o.rotulo}</span>
+                <div className="flex flex-wrap gap-1"><span className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium ${o.classeTipo}`}>{o.tipo}</span><span className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium ${o.classe}`}>{o.rotulo}</span></div>
                 {d.campanha && <p className="mt-2 text-xs text-muted-foreground">Campanha: <span className="text-foreground">{d.campanha}</span></p>}
                 {d.anuncio && <p className="mt-1 text-xs text-muted-foreground">Anúncio: <span className="text-foreground">{d.anuncio}</span></p>}
                 {d.link && <a href={d.link} target="_blank" rel="noreferrer noopener" className="mt-2 inline-flex text-xs font-medium text-primary hover:underline">Ver o anúncio →</a>}

@@ -3,6 +3,7 @@
 import type { Deal, PipelineStage } from "@/types";
 import { Calendar, Check, Clock3, GripVertical, Sparkles, X } from "lucide-react";
 import { formatCurrency } from "@/lib/currency";
+import { origemDoLead } from "@/lib/lead-origin";
 
 interface DealCardProps {
   deal: Deal;
@@ -34,16 +35,6 @@ const leadLabels = {
   perdido: { label: "Perdido", className: "bg-red-500/15 text-red-300" },
 } as const;
 
-const originLabels: Record<string, string> = {
-  meta_ads: "Meta",
-  google_ads: "Google",
-  referral: "Indicação",
-  presencial: "Presencial",
-  phone: "Ligação",
-  active_base: "Base ativa",
-  whatsapp: "WhatsApp",
-  other: "Outros",
-};
 
 function nextAction(deal: Deal) {
   if (deal.status === "won") return "Confirmar dados e iniciar o pós-venda";
@@ -128,9 +119,15 @@ export function DealCard({ deal, stage, onEdit, onHistory, isOverlay }: DealCard
       </div>
 
       <div className="mt-2 flex flex-wrap gap-1">
-        {deal.contact?.lead_source && (
-          <span className="rounded-full bg-violet-500/15 px-2 py-0.5 text-[10px] font-semibold text-violet-300">
-            Origem: {originLabels[deal.contact.lead_source] || deal.contact.lead_source}
+        {(() => { const o = origemDoLead(deal.contact); return o ? (
+          <>
+            <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${o.classeTipo}`}>{o.tipo}</span>
+            <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${o.classe}`}>{o.rotulo}</span>
+          </>
+        ) : null; })()}
+        {deal.contact?.utm_campaign && (
+          <span className="max-w-full truncate rounded-full bg-muted px-2 py-0.5 text-[10px] text-muted-foreground" title={deal.contact.utm_campaign}>
+            {deal.contact.utm_campaign}
           </span>
         )}
         {deal.contact?.response_time_bucket && (
