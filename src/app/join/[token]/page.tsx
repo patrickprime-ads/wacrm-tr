@@ -183,7 +183,7 @@ export default function JoinPage() {
         if (res.status === 409) {
           setConflictMessage(
             payload.error ||
-              'You are already in another account. Sign in with a different email to join this one.',
+              'Você já faz parte de outra empresa. Entre com outro e-mail para aceitar este convite.',
           );
         } else {
           toast.error(payload.error || 'Failed to accept invitation');
@@ -390,10 +390,10 @@ export default function JoinPage() {
                 {signingOut ? (
                   <>
                     <Loader2 className="size-4 animate-spin" />
-                    Signing out…
+                    Saindo…
                   </>
                 ) : (
-                  'Sign out & user? a different email'
+                  'Sair e usar outro e-mail'
                 )}
               </Button>
             </DialogFooter>
