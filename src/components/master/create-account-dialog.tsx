@@ -37,11 +37,14 @@ export function CreateAccountDialog({ onSuccess }: CreateAccountDialogProps) {
   const [formData, setFormData] = useState({
     email: "",
     fullName: "",
+    ownerName: "",
     plan: "pro" as Plan,
   });
+  const [criada, setCriada] = useState<{ empresa: string; email: string; senha: string } | null>(null);
 
   const handleOpenChange = (nextOpen: boolean) => {
     setOpen(nextOpen);
+    if (!nextOpen) setCriada(null);
     if (nextOpen) void fetch("/api/master/plans", { cache: "no-store" })
       .then(async response => response.ok ? response.json() : Promise.reject())
       .then(body => setPlans(body.plans))
@@ -64,6 +67,7 @@ export function CreateAccountDialog({ onSuccess }: CreateAccountDialogProps) {
         body: JSON.stringify({
           email: formData.email,
           fullName: formData.fullName,
+          ownerName: formData.ownerName,
           plan: formData.plan,
         }),
       });
@@ -73,9 +77,11 @@ export function CreateAccountDialog({ onSuccess }: CreateAccountDialogProps) {
         throw new Error(err.error || "Erro ao criar empresa");
       }
 
+      const body = await res.json();
       toast.success("Empresa criada com sucesso!");
-      setFormData({ email: "", fullName: "", plan: "pro" });
-      setOpen(false);
+      // Mostra a senha temporária uma vez, para passar ao responsável (ele troca no primeiro acesso).
+      setCriada({ empresa: formData.fullName, email: formData.email, senha: String(body.tempPassword || "") });
+      setFormData({ email: "", fullName: "", ownerName: "", plan: "pro" });
       onSuccess?.();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Erro ao criar empresa");
@@ -100,6 +106,14 @@ export function CreateAccountDialog({ onSuccess }: CreateAccountDialogProps) {
           </DialogDescription>
         </DialogHeader>
 
+        {criada ? (
+          <div className="space-y-3 text-sm">
+            <p><strong>{criada.empresa}</strong> criada.</p>
+            <p>Passe para o responsável (ele troca a senha no primeiro acesso):</p>
+            <div className="rounded-lg bg-muted p-3 font-mono text-xs">E-mail: {criada.email}<br />Senha temporária: {criada.senha}</div>
+            <Button type="button" variant="outline" onClick={() => { void navigator.clipboard.writeText(`E-mail: ${criada.email}\nSenha temporária: ${criada.senha}`); toast.success("Copiado"); }}>Copiar acesso</Button>
+          </div>
+        ) : (
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="fullName">Nome da Empresa *</Label>
@@ -114,6 +128,10 @@ export function CreateAccountDialog({ onSuccess }: CreateAccountDialogProps) {
             />
           </div>
 
+          <div className="space-y-2">
+            <Label htmlFor="ownerName">Nome do responsável</Label>
+            <Input id="ownerName" placeholder="Ex.: Daiane" value={formData.ownerName} onChange={(e) => setFormData({ ...formData, ownerName: e.target.value })} disabled={loading} />
+          </div>
           <div className="space-y-2">
             <Label htmlFor="email">Email do Admin *</Label>
             <Input
@@ -164,6 +182,7 @@ export function CreateAccountDialog({ onSuccess }: CreateAccountDialogProps) {
             </Button>
           </div>
         </form>
+        )}
       </DialogContent>
     </Dialog>
   );

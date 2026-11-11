@@ -33,6 +33,7 @@ export async function POST(request: Request) {
     const body = (await request.json().catch(() => null)) as {
       email?: unknown;
       fullName?: unknown;
+      ownerName?: unknown;
       plan?: unknown;
     } | null;
 
@@ -75,12 +76,15 @@ export async function POST(request: Request) {
     // or handle this differently. For now, we'll create via the regular client
     // and send invitation instead.
 
-    const { data: { user: newUser }, error: createUserErr } = await supabase.auth.admin.createUser({
+    // Criar usuário exige a chave de serviço: usa o cliente admin (o da sessão não tem permissão).
+    const admin = supabaseAdmin();
+    const ownerName = typeof body?.ownerName === "string" && body.ownerName.trim() ? body.ownerName.trim() : fullName;
+    const { data: { user: newUser }, error: createUserErr } = await admin.auth.admin.createUser({
       email,
       password: tempPassword,
       email_confirm: true,
       user_metadata: {
-        full_name: fullName,
+        full_name: ownerName,
       },
     });
 
@@ -97,7 +101,7 @@ export async function POST(request: Request) {
     }
 
     // 2. Create account
-    const { data: accountData, error: accountErr } = await supabase
+    const { data: accountData, error: accountErr } = await admin
       .from("accounts")
       .insert({
         name: fullName,
@@ -114,10 +118,10 @@ export async function POST(request: Request) {
     }
 
     // 3. Update profile with account info
-    const { error: profileUpdateErr } = await supabase
+    const { error: profileUpdateErr } = await admin
       .from("profiles")
       .update({
-        full_name: fullName,
+        full_name: ownerName,
         account_id: accountData.id,
         account_role: "owner",
       })
@@ -129,7 +133,7 @@ export async function POST(request: Request) {
     }
 
     // 4. Create account features record
-    const { error: featuresErr } = await supabase
+    const { error: featuresErr } = await admin
       .from("account_features")
       .insert({
         account_id: accountData.id,
