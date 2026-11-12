@@ -25,7 +25,6 @@ type InboundLead = {
   ad_image?: unknown;
   ad_url?: unknown;
   ad_headline?: unknown;
-  ad_url?: unknown;
   utm_source?: unknown;
   utm_medium?: unknown;
   utm_campaign?: unknown;
