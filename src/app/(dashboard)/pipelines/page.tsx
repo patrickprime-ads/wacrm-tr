@@ -35,6 +35,7 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { origemDoLead } from '@/lib/lead-origin';
 import { useCan } from '@/hooks/use-can';
 import { useAuth } from '@/hooks/use-auth';
 import { GatedButton } from '@/components/ui/gated-button';
@@ -64,6 +65,12 @@ export default function PipelinesPage() {
   const [deals, setDeals] = useState<Deal[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  // Prime: filtros do Kanban (vendedora, período, anúncio/orgânico, rede).
+  const [fVendedora, setFVendedora] = useState('');
+  const [fTipo, setFTipo] = useState('');
+  const [fRede, setFRede] = useState('');
+  const [fDe, setFDe] = useState('');
+  const [fAte, setFAte] = useState('');
   const [refreshing, setRefreshing] = useState(false);
 
   // Dialog / sheet state
@@ -378,19 +385,30 @@ export default function PipelinesPage() {
   }
 
   const selectedPipeline = pipelines.find((p) => p.id === selectedPipelineId);
+  const vendedoraDe = (deal: Deal) =>
+    deal.assignee?.full_name?.trim() || String((deal as { seller_name?: string | null }).seller_name || '').trim() || 'Sem vendedora';
+  const vendedoras = useMemo(() => [...new Set(deals.map(vendedoraDe))].sort((a, b) => a.localeCompare(b, 'pt-BR')), [deals]);
   const visibleDeals = useMemo(() => {
     const query = search.trim().toLocaleLowerCase('pt-BR');
-    if (!query) return deals;
-
-    return deals.filter((deal) =>
-      [
-        deal.title,
-        deal.contact?.name,
-        deal.contact?.phone,
-        deal.assignee?.full_name,
-      ].some((value) => value?.toLocaleLowerCase('pt-BR').includes(query))
-    );
-  }, [deals, search]);
+    const de = fDe ? new Date(`${fDe}T00:00:00-03:00`).getTime() : null;
+    const ate = fAte ? new Date(`${fAte}T23:59:59-03:00`).getTime() : null;
+    return deals.filter((deal) => {
+      if (query && ![deal.title, deal.contact?.name, deal.contact?.phone, deal.assignee?.full_name]
+        .some((value) => value?.toLocaleLowerCase('pt-BR').includes(query))) return false;
+      if (fVendedora && vendedoraDe(deal) !== fVendedora) return false;
+      const quando = new Date(deal.created_at).getTime();
+      if (de !== null && quando < de) return false;
+      if (ate !== null && quando > ate) return false;
+      if (fTipo || fRede) {
+        const o = origemDoLead(deal.contact);
+        if (fTipo === 'anuncio' && !o?.anuncio) return false;
+        if (fTipo === 'organico' && o?.anuncio) return false;
+        if (fRede && o?.rotulo !== fRede) return false;
+      }
+      return true;
+    });
+  }, [deals, search, fVendedora, fTipo, fRede, fDe, fAte]);
+  const filtrando = !!(search || fVendedora || fTipo || fRede || fDe || fAte);
 
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -527,7 +545,7 @@ export default function PipelinesPage() {
         </div>
       ) : (
         <>
-          <PipelineAnalytics stages={stages} deals={deals} />
+          <PipelineAnalytics stages={stages} deals={visibleDeals} />
           <div className="border-border/80 bg-card/70 flex flex-col gap-3 rounded-xl border p-3 shadow-sm sm:flex-row sm:items-center sm:justify-between">
             <div className="relative w-full sm:max-w-sm">
               <Search className="text-muted-foreground pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
@@ -541,7 +559,7 @@ export default function PipelinesPage() {
             </div>
             <div className="flex items-center justify-between gap-3 sm:justify-end">
               <span className="text-muted-foreground text-xs">
-                {search
+                {filtrando
                   ? `${visibleDeals.length} de ${deals.length} oportunidades`
                   : `${deals.length} oportunidades no funil`}
               </span>
@@ -559,6 +577,23 @@ export default function PipelinesPage() {
                 Atualizar
               </Button>
             </div>
+          </div>
+          <div className="border-border/80 bg-card/70 flex flex-wrap items-center gap-2 rounded-xl border p-3 text-xs shadow-sm">
+            {([['', 'Todos'], ['anuncio', 'Anúncio'], ['organico', 'Orgânico']] as const).map(([v, r]) => (
+              <button key={v || 'todos'} type="button" onClick={() => setFTipo(v)}
+                className={`rounded-full border px-3 py-1 ${fTipo === v ? 'border-primary bg-primary/15 text-foreground' : 'border-border text-muted-foreground hover:text-foreground'}`}>{r}</button>
+            ))}
+            <span className="bg-border mx-1 h-4 w-px" />
+            <select value={fRede} onChange={(e) => setFRede(e.target.value)} className="border-border bg-background/70 h-8 rounded-lg border px-2">
+              <option value="">Todas as redes</option><option>Facebook</option><option>Instagram</option><option>Google</option><option>Site</option><option>WhatsApp</option>
+            </select>
+            <select value={fVendedora} onChange={(e) => setFVendedora(e.target.value)} className="border-border bg-background/70 h-8 rounded-lg border px-2">
+              <option value="">Todas as vendedoras</option>
+              {vendedoras.map((v) => <option key={v}>{v}</option>)}
+            </select>
+            <label className="text-muted-foreground flex items-center gap-1">De <input type="date" value={fDe} onChange={(e) => setFDe(e.target.value)} className="border-border bg-background/70 h-8 rounded-lg border px-2 text-foreground" /></label>
+            <label className="text-muted-foreground flex items-center gap-1">até <input type="date" value={fAte} onChange={(e) => setFAte(e.target.value)} className="border-border bg-background/70 h-8 rounded-lg border px-2 text-foreground" /></label>
+            {filtrando && <button type="button" onClick={() => { setSearch(''); setFVendedora(''); setFTipo(''); setFRede(''); setFDe(''); setFAte(''); }} className="text-primary ml-auto hover:underline">Limpar filtros</button>}
           </div>
           <PipelineBoard
             stages={stages}
