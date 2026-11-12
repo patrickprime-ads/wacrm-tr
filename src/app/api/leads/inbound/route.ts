@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { variantesTelefoneBR } from "@/lib/phone-br";
 
 import { supabaseAdmin } from "@/lib/flows/admin-client";
 import { bearerToken, hashInboundToken } from "@/lib/inbound/token";
@@ -162,12 +163,23 @@ export async function POST(request: Request) {
     };
 
     // 1. Contato: acha pelo telefone; se não existe, cria com a data real de chegada.
-    const { data: existing } = await db
+    // Prime: procura com e sem o 9; se já existirem os dois, junta no que tem conversa (o do WhatsApp).
+    const { data: achados } = await db
       .from("contacts")
-      .select("id, name, lead_source, source_detail, utm_campaign, click_id")
+      .select("id, name, lead_source, source_detail, utm_campaign, click_id, phone_normalized")
       .eq("account_id", account.id)
-      .eq("phone_normalized", phone)
-      .maybeSingle();
+      .in("phone_normalized", variantesTelefoneBR(phone));
+    let existing = (achados ?? [])[0] ?? null;
+    if ((achados ?? []).length > 1) {
+      const ids = achados!.map((c) => c.id as string);
+      const { data: conv } = await db.from("conversations").select("contact_id").in("contact_id", ids).limit(1);
+      const sobrevivente = achados!.find((c) => c.id === conv?.[0]?.contact_id) ?? achados![0];
+      for (const outro of achados!) {
+        if (outro.id === sobrevivente.id) continue;
+        await db.rpc("merge_evolution_contact_identity", { p_account_id: account.id, p_survivor_id: sobrevivente.id, p_duplicate_id: outro.id });
+      }
+      existing = sobrevivente;
+    }
 
     let contactId: string;
     let isNewContact = false;

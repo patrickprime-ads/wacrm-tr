@@ -1,3 +1,4 @@
+import { variantesTelefoneBR } from "@/lib/phone-br";
 import { supabaseAdmin } from "@/lib/flows/admin-client";
 
 export type EvolutionMessage = {
@@ -223,6 +224,11 @@ export async function importEvolutionMessage(accountId: string, data: EvolutionM
     .eq("account_id", accountId)
     .eq("phone_normalized", phone)
     .maybeSingle();
+  if (!contact) {
+    // Prime: o mesmo celular pode já existir com/sem o 9 (veio do rastreio).
+    const { data: outro } = await db.from("contacts").select("id").eq("account_id", accountId).in("phone_normalized", variantesTelefoneBR(phone)).limit(1);
+    if (outro?.[0]) contact = outro[0];
+  }
   if (!contact) {
     const referral = adReferral(data);
     const inboundName =
