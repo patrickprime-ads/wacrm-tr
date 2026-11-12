@@ -235,9 +235,15 @@ export function ContactSidebar({ contact, conversationId }: ContactSidebarProps)
               <div className="mt-3 rounded-xl border border-border p-3 text-left">
                 <div className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">De onde veio</div>
                 <div className="flex flex-wrap gap-1"><span className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium ${o.classeTipo}`}>{o.tipo}</span><span className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium ${o.classe}`}>{o.rotulo}</span></div>
-                {d.campanha && <p className="mt-2 text-xs text-muted-foreground">Campanha: <span className="text-foreground">{d.campanha}</span></p>}
-                {d.anuncio && <p className="mt-1 text-xs text-muted-foreground">Anúncio: <span className="text-foreground">{d.anuncio}</span></p>}
-                {d.chamada && <p className="mt-1 text-xs text-muted-foreground">Chamada do anúncio: <span className="text-foreground">“{d.chamada}”</span></p>}
+                {d.metodo && <Info rotulo="Método de rastreio" valor={d.metodo} />}
+                {d.campanha && <Info rotulo="Campanha" valor={d.campanha} />}
+                {d.conjunto && <Info rotulo="Conjunto de anúncios" valor={d.conjunto} />}
+                {d.anuncio && <Info rotulo="Anúncio" valor={d.anuncio} />}
+                {d.chamada && <Info rotulo="Chamada do anúncio" valor={`“${d.chamada}”`} />}
+                {d.imagem && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={d.imagem} alt="Imagem do anúncio" referrerPolicy="no-referrer" className="mt-2 max-h-40 w-full rounded-lg border border-border object-cover" onError={(e) => { e.currentTarget.style.display = "none"; }} />
+                )}
                 {d.link && <a href={d.link} target="_blank" rel="noreferrer noopener" className="mt-2 inline-flex text-xs font-medium text-primary hover:underline">Ver o anúncio →</a>}
                 {!o.anuncio && !d.campanha && <p className="mt-2 text-xs text-muted-foreground">Chamou direto, sem anúncio identificado.</p>}
               </div>
@@ -388,6 +394,15 @@ export function ContactSidebar({ contact, conversationId }: ContactSidebarProps)
           </div>
         </div>
       </ScrollArea>
+    </div>
+  );
+}
+
+function Info({ rotulo, valor }: { rotulo: string; valor: string }) {
+  return (
+    <div className="mt-2">
+      <p className="text-[11px] text-muted-foreground">{rotulo}</p>
+      <p className="text-xs text-foreground break-words">{valor}</p>
     </div>
   );
 }

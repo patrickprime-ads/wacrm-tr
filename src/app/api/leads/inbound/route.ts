@@ -219,6 +219,12 @@ export async function POST(request: Request) {
       }
     }
 
+    // Prime: miniatura do anúncio (coluna da atualização 055; sem ela, só não guarda).
+    const adImage = text(body.ad_image, 1000);
+    if (adImage && /^https:\/\//.test(adImage)) {
+      await db.from("contacts").update({ ad_image_url: adImage }).eq("id", contactId).then(() => null, () => null);
+    }
+
     // 2. Card no Kanban: um card aberto por lead.
     const { data: openDeal } = await db
       .from("deals")

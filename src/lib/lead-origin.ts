@@ -12,6 +12,7 @@ type ContatoOrigem = {
   utm_campaign?: string | null;
   utm_content?: string | null;
   click_id?: string | null;
+  ad_image_url?: string | null;
 };
 
 export type Origem = { rotulo: string; classe: string; anuncio: boolean; tipo: string; classeTipo: string };
@@ -37,11 +38,17 @@ export function origemDoLead(c: ContatoOrigem | null | undefined): Origem | null
   return { rotulo: "WhatsApp", classe: CLASSES.neutro, ...tipo };
 }
 
-/** Nome da campanha e do anúncio (vêm do rastreio) e a chamada que aparece no anúncio (vem do WhatsApp). */
+/** Campanha, conjunto e anúncio (vêm do rastreio), a chamada do anúncio (vem do WhatsApp), imagem e link. */
 export function detalheDoAnuncio(c: ContatoOrigem | null | undefined) {
-  if (!c) return { campanha: null as string | null, anuncio: null as string | null, chamada: null as string | null, link: null as string | null };
+  const vazio = { metodo: null as string | null, campanha: null as string | null, conjunto: null as string | null, anuncio: null as string | null, chamada: null as string | null, imagem: null as string | null, link: null as string | null };
+  if (!c) return vazio;
   const link = c.source_url && /^https:\/\//.test(c.source_url) ? c.source_url : null;
   const detalhe = c.source_detail && !/whatsapp business|^rastreio$/i.test(c.source_detail) && !c.source_detail.includes(" · ") ? c.source_detail : null;
   const anuncio = c.utm_content && c.utm_content !== detalhe ? c.utm_content : null;
-  return { campanha: c.utm_campaign || null, anuncio, chamada: detalhe, link };
+  const metodo = c.lead_source === "meta_ads" && (c.click_id || link) ? "Campanha de mensagem (clique para o WhatsApp)"
+    : c.lead_source === "google_ads" ? "Google Ads (site)" : c.lead_source === "meta_ads" ? "Meta Ads" : null;
+  return {
+    metodo, campanha: c.utm_campaign || null, conjunto: c.utm_term || null, anuncio, chamada: detalhe,
+    imagem: c.ad_image_url && /^https:\/\//.test(c.ad_image_url) ? c.ad_image_url : null, link,
+  };
 }

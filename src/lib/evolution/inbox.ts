@@ -61,7 +61,7 @@ function contentType(data: EvolutionMessage) {
 
 function adReferral(data: EvolutionMessage) {
   // Prime: o "externalAdReply" do anúncio pode vir em qualquer tipo de mensagem (texto, imagem...) ou direto em data.contextInfo.
-  type Ad = { title?: string; body?: string; sourceUrl?: string; mediaUrl?: string; sourceId?: string; sourceApp?: string; sourceType?: string };
+  type Ad = { title?: string; body?: string; sourceUrl?: string; mediaUrl?: string; thumbnailUrl?: string; originalImageUrl?: string; sourceId?: string; sourceApp?: string; sourceType?: string };
   const achar = (valor: unknown, fundo = 0): Ad | null => {
     if (!valor || typeof valor !== "object" || fundo > 4) return null;
     const r = valor as Record<string, unknown>;
@@ -78,6 +78,7 @@ function adReferral(data: EvolutionMessage) {
     url,
     rede,
     adId: ad.sourceId ? String(ad.sourceId).slice(0, 60) : null,
+    imagem: [ad.originalImageUrl, ad.thumbnailUrl].find((u) => typeof u === 'string' && /^https:\/\//.test(u)) || null,
   };
 }
 
@@ -276,6 +277,10 @@ export async function importEvolutionMessage(accountId: string, data: EvolutionM
         .eq("id", contact.id);
     }
   }
+
+  // Prime: miniatura do anúncio (coluna da atualização 055; sem ela, só não guarda).
+  const anuncioImg = adReferral(data)?.imagem;
+  if (anuncioImg) await db.from("contacts").update({ ad_image_url: anuncioImg }).eq("id", contact.id).then(() => null, () => null);
 
   let { data: conversation } = await db
     .from("conversations")
