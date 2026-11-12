@@ -11,6 +11,7 @@ type ContatoOrigem = {
   utm_medium?: string | null;
   utm_campaign?: string | null;
   utm_content?: string | null;
+  utm_term?: string | null;
   click_id?: string | null;
   ad_image_url?: string | null;
 };
