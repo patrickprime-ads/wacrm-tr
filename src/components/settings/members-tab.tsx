@@ -84,7 +84,7 @@ type InboxAssignmentMode = 'manual' | 'balanced';
 // promotions go through the (deferred) Transfer Ownership flow.
 const EDITABLE_ROLES: { value: AccountRole; label: string; hint: string }[] = [
   { value: 'admin', label: 'Admin', hint: 'Manage members + everything' },
-  { value: 'agent', label: 'Agent', hint: 'Use features; no settings' },
+  { value: 'agent', label: 'Vendedor(a)', hint: 'Usa o CRM e a caixa de entrada; sem configurações' },
   { value: 'viewer', label: 'Visualizador', hint: 'Somente leitura em todo o app' },
 ];
 
@@ -96,7 +96,7 @@ const EDITABLE_ROLES: { value: AccountRole; label: string; hint: string }[] = [
 function fmtDate(iso: string): string {
   // Match the rest of the dashboard's locale-light formatting.
   const d = new Date(iso);
-  return d.toLocaleDateString(undefined, {
+  return d.toLocaleDateString('pt-BR', {
     year: 'numeric',
     month: 'short',
     day: 'numeric',
@@ -105,11 +105,11 @@ function fmtDate(iso: string): string {
 
 function fmtExpiresIn(iso: string): string {
   const ms = new Date(iso).getTime() - Date.now();
-  if (ms <= 0) return 'expired';
+  if (ms <= 0) return 'expirado';
   const days = Math.floor(ms / (24 * 60 * 60 * 1000));
-  if (days >= 1) return `expires in ${days} day${days === 1 ? '' : 's'}`;
+  if (days >= 1) return `expira em ${days} dia${days === 1 ? '' : 's'}`;
   const hours = Math.max(1, Math.floor(ms / (60 * 60 * 1000)));
-  return `expires in ${hours} hour${hours === 1 ? '' : 's'}`;
+  return `expira em ${hours} hora${hours === 1 ? '' : 's'}`;
 }
 
 export function MembersTab() {
@@ -141,7 +141,7 @@ export function MembersTab() {
 
       if (!mres.ok) {
         const payload = await mres.json().catch(() => ({}));
-        toast.error(payload.error || 'Failed to load members');
+        toast.error(payload.error || 'Não consegui carregar os membros');
         return;
       }
       const mdata = (await mres.json()) as { members: Member[] };
@@ -159,7 +159,7 @@ export function MembersTab() {
       if (ires) {
         if (!ires.ok) {
           const payload = await ires.json().catch(() => ({}));
-          toast.error(payload.error || 'Failed to load invitations');
+          toast.error(payload.error || 'Não consegui carregar os convites');
           return;
         }
         const idata = (await ires.json()) as { invitations: Invitation[] };
@@ -255,7 +255,7 @@ export function MembersTab() {
           ),
         );
         const payload = await res.json().catch(() => ({}));
-        toast.error(payload.error || 'Failed to update role');
+        toast.error(payload.error || 'Não consegui trocar a função');
         return;
       }
       toast.success(`Updated ${member.full_name || 'member'} to ${nextRole}`);
@@ -283,7 +283,7 @@ export function MembersTab() {
       );
       if (!res.ok) {
         const payload = await res.json().catch(() => ({}));
-        toast.error(payload.error || 'Failed to remove member');
+        toast.error(payload.error || 'Não consegui remover o membro');
         return;
       }
       toast.success(`Removed ${removingMember.full_name || 'member'}`);
@@ -306,10 +306,10 @@ export function MembersTab() {
       });
       if (!res.ok) {
         const payload = await res.json().catch(() => ({}));
-        toast.error(payload.error || 'Failed to revoke invitation');
+        toast.error(payload.error || 'Não consegui cancelar o convite');
         return;
       }
-      toast.success('Invitation revoked');
+      toast.success('Convite cancelado');
       setInvitations((prev) => prev.filter((i) => i.id !== invite.id));
     } catch (err) {
       console.error('[MembersTab] revoke error:', err);
@@ -329,12 +329,12 @@ export function MembersTab() {
     <section className="animate-in fade-in-50 space-y-6 duration-200">
       <SettingsPanelHead
         title="Membros da equipe"
-        description="People with access to this account. Roles control what each teammate can do."
+        description="Pessoas com acesso a esta empresa. A função define o que cada uma pode fazer."
         action={
           <RequireRole min="admin">
             <Button onClick={() => setInviteOpen(true)}>
               <Plus className="size-4" />
-              Invite member
+              Convidar membro
             </Button>
           </RequireRole>
         }
@@ -359,7 +359,7 @@ export function MembersTab() {
             disabled={!canManageMembers || savingInboxVisibility}
           >
             <SelectTrigger className="w-full bg-muted sm:w-56">
-              <SelectValue />
+              <SelectValue>{(v: string) => (v === 'assigned' ? 'Carteira individual' : 'Caixa compartilhada')}</SelectValue>
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="shared">Caixa compartilhada</SelectItem>
@@ -388,7 +388,7 @@ export function MembersTab() {
             disabled={!canManageMembers || savingAssignmentMode}
           >
             <SelectTrigger className="w-full bg-muted sm:w-56">
-              <SelectValue />
+              <SelectValue>{(v: string) => (v === 'balanced' ? 'Sim — automática' : 'Não — manual')}</SelectValue>
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="manual">Não — manual</SelectItem>
@@ -441,7 +441,7 @@ export function MembersTab() {
                         </span>
                         {isSelf && (
                           <Badge className="bg-muted text-muted-foreground border-border text-[10px] uppercase tracking-wide">
-                            You
+                            Você
                           </Badge>
                         )}
                       </div>
@@ -456,7 +456,7 @@ export function MembersTab() {
                   {/* Joined date stays desktop-only. The mobile row's
                       vertical density makes the joined date noise. */}
                   <div className="hidden sm:block text-right text-xs text-muted-foreground">
-                    Joined {fmtDate(member.joined_at)}
+                    Entrou em {fmtDate(member.joined_at)}
                   </div>
 
                   {/* Actions cluster. On mobile this is its own row
@@ -482,7 +482,7 @@ export function MembersTab() {
                           className="w-32 bg-muted border-border text-foreground"
                           disabled={isBusy}
                         >
-                          <SelectValue />
+                          <SelectValue>{(v: string) => EDITABLE_ROLES.find((r) => r.value === v)?.label ?? v}</SelectValue>
                         </SelectTrigger>
                         <SelectContent>
                           {EDITABLE_ROLES.map((r) => (
@@ -533,7 +533,7 @@ export function MembersTab() {
           <div className="mb-2 flex items-center gap-2">
             <UsersRound className="size-4 text-muted-foreground" />
             <h3 className="text-sm font-semibold text-foreground">
-              Pending invitations
+              Convites pendentes
             </h3>
             <Badge className="bg-muted text-muted-foreground border-border">
               {invitations.length}
@@ -546,9 +546,9 @@ export function MembersTab() {
               looking for a button) keeps it from feeling like a bug. */}
           {invitations.length > 0 ? (
             <p className="mb-3 text-xs text-muted-foreground">
-              The plaintext invite URL is only shown once at creation
-              for security — to re-share, revoke the invite below and
-              create a new one.
+              Por segurança, o link do convite só aparece uma vez, na hora
+              em que é criado. Para mandar de novo, cancele o convite abaixo
+              e crie outro.
             </p>
           ) : null}
 
@@ -557,11 +557,11 @@ export function MembersTab() {
               <CardContent className="flex flex-col items-center justify-center py-8 text-center">
                 <Mail className="size-6 text-muted-foreground" />
                 <p className="mt-2 text-sm text-muted-foreground">
-                  No pending invitations.
+                  Nenhum convite pendente.
                 </p>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  Click <span className="text-muted-foreground">Invite member</span>{' '}
-                  above to generate a shareable link.
+                  Clique em <span className="text-muted-foreground">Convidar membro</span>{' '}
+                  acima para gerar um link de convite.
                 </p>
               </CardContent>
             </Card>
@@ -580,7 +580,7 @@ export function MembersTab() {
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2">
                           <span className="text-sm font-medium text-foreground">
-                            {inv.label || 'Untitled invite'}
+                            {inv.label || 'Convite sem nome'}
                           </span>
                           <span
                             className={`inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[11px] font-medium ${inviteRoleMeta.className}`}
@@ -605,7 +605,7 @@ export function MembersTab() {
                         className="border-red-500/40 bg-red-500/10 text-red-300 hover:bg-red-500/20 hover:border-red-500/60 hover:text-red-200"
                       >
                         <MailX className="size-4" />
-                        Revoke
+                        Cancelar convite
                       </Button>
                     </li>
                     );
@@ -633,16 +633,15 @@ export function MembersTab() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-popover-foreground">
               <AlertTriangle className="size-4 text-amber-400" />
-              Remove member
+              Remover membro
             </DialogTitle>
             <DialogDescription className="text-muted-foreground">
-              Remove{' '}
+              Remover{' '}
               <span className="font-medium text-muted-foreground">
-                {removingMember?.full_name || 'this teammate'}
+                {removingMember?.full_name || 'esta pessoa'}
               </span>{' '}
-              from the account? They&apos;ll be signed out of this account
-              and given a fresh personal account on their next sign-in. Their
-              login isn&apos;t deleted.
+              da empresa? Ela sai desta empresa e, no próximo login, entra numa
+              conta própria vazia. O login dela não é apagado.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="bg-popover border-border">
@@ -661,10 +660,10 @@ export function MembersTab() {
               {pendingMemberAction ? (
                 <>
                   <Loader2 className="size-4 animate-spin" />
-                  Removing...
+                  Removendo...
                 </>
               ) : (
-                'Remove member'
+                'Remover membro'
               )}
             </Button>
           </DialogFooter>
