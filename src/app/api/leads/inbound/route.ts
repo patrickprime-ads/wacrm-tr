@@ -22,6 +22,8 @@ type InboundLead = {
   channel?: unknown;
   campaign?: unknown;
   ad_id?: unknown;
+  ad_image?: unknown;
+  ad_url?: unknown;
   ad_headline?: unknown;
   ad_url?: unknown;
   utm_source?: unknown;
