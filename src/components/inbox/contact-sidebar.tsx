@@ -240,15 +240,12 @@ export function ContactSidebar({ contact, conversationId }: ContactSidebarProps)
                 {o.anuncio ? (
                   <>
                     <Info rotulo="Método de rastreio" valor={d.metodo || "Meta Ads"} />
-                    <Info rotulo="Nome da campanha" valor={d.campanha} />
-                    <Info rotulo="Nome do conjunto de anúncio" valor={d.conjunto} />
-                    <Info rotulo="Nome do anúncio" valor={d.anuncio || (contact.ad_id ? `ID ${contact.ad_id}` : null)} />
+                    {d.anuncio && <Info rotulo="Nome do anúncio" valor={d.anuncio} />}
                     {d.imagem && (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img src={d.imagem} alt="Imagem do anúncio" referrerPolicy="no-referrer" className="mt-3 w-full rounded-lg border border-border object-cover" onError={(e) => { e.currentTarget.style.display = "none"; }} />
                     )}
                     {d.link && <a href={d.link} target="_blank" rel="noreferrer noopener" className="mt-2 inline-flex text-xs font-medium text-primary hover:underline">Ver o anúncio →</a>}
-                    {!d.campanha && <p className="mt-2 text-[11px] text-muted-foreground">Campanha, conjunto e anúncio chegam pelo painel de rastreio (CRM Prime ligado no cliente).</p>}
                   </>
                 ) : (
                   <p className="text-xs text-muted-foreground">Chamou direto, sem anúncio identificado.</p>
