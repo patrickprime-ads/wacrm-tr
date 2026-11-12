@@ -64,7 +64,7 @@ async function preservarWebhookAnterior(config: ConfigRow, instance: string, sal
   }
 }
 
-async function evolution(config: ConfigRow, path: string, init?: RequestInit) {
+async function evolution(config: ConfigRow, path: string, init?: RequestInit & { timeoutMs?: number }) {
   const response = await fetch(`${config.server_url}${path}`, {
     ...init,
     cache: 'no-store',
@@ -73,7 +73,7 @@ async function evolution(config: ConfigRow, path: string, init?: RequestInit) {
       apikey: decrypt(config.api_key_encrypted),
       ...init?.headers,
     },
-    signal: AbortSignal.timeout(15000),
+    signal: AbortSignal.timeout(init?.timeoutMs ?? 15000),
   });
   const text = await response.text();
   let data: unknown = {};
@@ -449,6 +449,50 @@ export async function POST(request: Request) {
           // History/contact import below must still continue in that case.
         }
 
+        let fotosBuscadas = 0; // Prime: limita as buscas de foto para a sincronização não estourar o tempo
+        // Prime: mensagens primeiro (é o que a vendedora precisa ver); contatos e fotos depois.
+        const pageSize = 100;
+        const maxPages = 5;
+        const seenMessageIds = new Set<string>();
+        for (let page = 1; page <= maxPages; page += 1) {
+          const history = await evolution(
+            config as ConfigRow,
+            `/chat/findMessages/${instance}`,
+            {
+              timeoutMs: 45000,
+              method: 'POST',
+              body: JSON.stringify({
+                where: { key: {} },
+                page,
+                offset: pageSize,
+              }),
+            },
+          );
+          const container = (history.messages ?? history) as
+            | Record<string, unknown>
+            | EvolutionMessage[];
+          const records = Array.isArray(container)
+            ? container
+            : Array.isArray(container.records)
+              ? (container.records as EvolutionMessage[])
+              : [];
+          if (!records.length) break;
+
+          let newRecordsOnPage = 0;
+          for (const message of records) {
+            const externalId = message.key?.id || message.id;
+            if (externalId && seenMessageIds.has(externalId)) continue;
+            if (externalId) seenMessageIds.add(externalId);
+            newRecordsOnPage += 1;
+            const result = await importEvolutionMessage(accountId, message);
+            if (result === 'imported') imported += 1;
+            else skipped += 1;
+          }
+          // Some older Evolution versions ignore `page`. Avoid importing
+          // the same first page repeatedly, and stop normally at the end.
+          if (newRecordsOnPage === 0 || records.length < pageSize) break;
+        }
+
         const evolutionContacts = (await pagedEvolutionRecords(
           config as ConfigRow,
           `/chat/findContacts/${instance}`,
@@ -553,7 +597,7 @@ export async function POST(request: Request) {
             evolutionContact.profilePicUrl ||
             null;
           const needsAvatar = matches.some((contact) => !contact.avatar_url);
-          if (!avatarUrl && needsAvatar && (realJid || phone)) {
+          if (!avatarUrl && needsAvatar && (realJid || phone) && fotosBuscadas++ < 40) {
             try {
               const picture = await evolution(
                 config as ConfigRow,
@@ -616,47 +660,6 @@ export async function POST(request: Request) {
               .eq('account_id', accountId);
             if (!updateError) contactsUpdated += 1;
           }
-        }
-
-        const pageSize = 100;
-        const maxPages = 5;
-        const seenMessageIds = new Set<string>();
-        for (let page = 1; page <= maxPages; page += 1) {
-          const history = await evolution(
-            config as ConfigRow,
-            `/chat/findMessages/${instance}`,
-            {
-              method: 'POST',
-              body: JSON.stringify({
-                where: { key: {} },
-                page,
-                offset: pageSize,
-              }),
-            },
-          );
-          const container = (history.messages ?? history) as
-            | Record<string, unknown>
-            | EvolutionMessage[];
-          const records = Array.isArray(container)
-            ? container
-            : Array.isArray(container.records)
-              ? (container.records as EvolutionMessage[])
-              : [];
-          if (!records.length) break;
-
-          let newRecordsOnPage = 0;
-          for (const message of records) {
-            const externalId = message.key?.id || message.id;
-            if (externalId && seenMessageIds.has(externalId)) continue;
-            if (externalId) seenMessageIds.add(externalId);
-            newRecordsOnPage += 1;
-            const result = await importEvolutionMessage(accountId, message);
-            if (result === 'imported') imported += 1;
-            else skipped += 1;
-          }
-          // Some older Evolution versions ignore `page`. Avoid importing
-          // the same first page repeatedly, and stop normally at the end.
-          if (newRecordsOnPage === 0 || records.length < pageSize) break;
         }
 
         // Message history can resolve an old @lid contact to its real phone.
