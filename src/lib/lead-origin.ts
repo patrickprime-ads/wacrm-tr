@@ -46,7 +46,7 @@ export function detalheDoAnuncio(c: ContatoOrigem | null | undefined) {
   const link = c.source_url && /^https:\/\//.test(c.source_url) ? c.source_url : null;
   const detalhe = c.source_detail && !/whatsapp business|^rastreio$/i.test(c.source_detail) && !c.source_detail.includes(" · ") ? c.source_detail : null;
   const anuncio = c.utm_content && c.utm_content !== detalhe ? c.utm_content : null;
-  const metodo = c.lead_source === "meta_ads" && (c.click_id || link) ? "Campanha de mensagem (clique para o WhatsApp)"
+  const metodo = c.lead_source === "meta_ads" && (c.click_id || link) ? "Campanha de Mensagem do Meta Ads"
     : c.lead_source === "google_ads" ? "Google Ads (site)" : c.lead_source === "meta_ads" ? "Meta Ads" : null;
   return {
     metodo, campanha: c.utm_campaign || null, conjunto: c.utm_term || null, anuncio, chamada: detalhe,

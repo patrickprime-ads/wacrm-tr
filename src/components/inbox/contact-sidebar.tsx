@@ -233,19 +233,26 @@ export function ContactSidebar({ contact, conversationId }: ContactSidebarProps)
             if (!o) return null;
             return (
               <div className="mt-3 rounded-xl border border-border p-3 text-left">
-                <div className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">De onde veio</div>
-                <div className="flex flex-wrap gap-1"><span className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium ${o.classeTipo}`}>{o.tipo}</span><span className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium ${o.classe}`}>{o.rotulo}</span></div>
-                {d.metodo && <Info rotulo="Método de rastreio" valor={d.metodo} />}
-                {d.campanha && <Info rotulo="Campanha" valor={d.campanha} />}
-                {d.conjunto && <Info rotulo="Conjunto de anúncios" valor={d.conjunto} />}
-                {d.anuncio && <Info rotulo="Anúncio" valor={d.anuncio} />}
-                {d.chamada && <Info rotulo="Chamada do anúncio" valor={`“${d.chamada}”`} />}
-                {d.imagem && (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={d.imagem} alt="Imagem do anúncio" referrerPolicy="no-referrer" className="mt-2 max-h-40 w-full rounded-lg border border-border object-cover" onError={(e) => { e.currentTarget.style.display = "none"; }} />
+                <div className="mb-2 flex items-center justify-between gap-2">
+                  <span className="text-sm font-semibold text-foreground">Rastreamento</span>
+                  <span className="flex gap-1"><span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${o.classeTipo}`}>{o.tipo}</span><span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${o.classe}`}>{o.rotulo}</span></span>
+                </div>
+                {o.anuncio ? (
+                  <>
+                    <Info rotulo="Método de rastreio" valor={d.metodo || "Meta Ads"} />
+                    <Info rotulo="Nome da campanha" valor={d.campanha} />
+                    <Info rotulo="Nome do conjunto de anúncio" valor={d.conjunto} />
+                    <Info rotulo="Nome do anúncio" valor={d.anuncio || (contact.ad_id ? `ID ${contact.ad_id}` : null)} />
+                    {d.imagem && (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={d.imagem} alt="Imagem do anúncio" referrerPolicy="no-referrer" className="mt-3 w-full rounded-lg border border-border object-cover" onError={(e) => { e.currentTarget.style.display = "none"; }} />
+                    )}
+                    {d.link && <a href={d.link} target="_blank" rel="noreferrer noopener" className="mt-2 inline-flex text-xs font-medium text-primary hover:underline">Ver o anúncio →</a>}
+                    {!d.campanha && <p className="mt-2 text-[11px] text-muted-foreground">Campanha, conjunto e anúncio chegam pelo painel de rastreio (CRM Prime ligado no cliente).</p>}
+                  </>
+                ) : (
+                  <p className="text-xs text-muted-foreground">Chamou direto, sem anúncio identificado.</p>
                 )}
-                {d.link && <a href={d.link} target="_blank" rel="noreferrer noopener" className="mt-2 inline-flex text-xs font-medium text-primary hover:underline">Ver o anúncio →</a>}
-                {!o.anuncio && !d.campanha && <p className="mt-2 text-xs text-muted-foreground">Chamou direto, sem anúncio identificado.</p>}
               </div>
             );
           })()}
@@ -398,11 +405,11 @@ export function ContactSidebar({ contact, conversationId }: ContactSidebarProps)
   );
 }
 
-function Info({ rotulo, valor }: { rotulo: string; valor: string }) {
+function Info({ rotulo, valor }: { rotulo: string; valor: string | null }) {
   return (
-    <div className="mt-2">
+    <div className="mt-3">
       <p className="text-[11px] text-muted-foreground">{rotulo}</p>
-      <p className="text-xs text-foreground break-words">{valor}</p>
+      <p className={`break-words text-[13px] ${valor ? "text-foreground" : "text-muted-foreground"}`}>{valor || "—"}</p>
     </div>
   );
 }
