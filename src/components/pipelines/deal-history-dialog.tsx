@@ -54,7 +54,7 @@ export function DealHistoryDialog({
               <div key={activity.id} className="flex gap-3 rounded-xl border bg-card p-3">
                 <Clock3 className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
                 <div>
-                  <strong className="block text-sm">{activity.description}</strong>
+                  <strong className="block text-sm">{activity.description === "Venda criada" ? "Lead criado" : activity.description}</strong>
                   <span className="text-xs text-muted-foreground">
                     {new Date(activity.created_at).toLocaleString("pt-BR")}
                     {activity.actor_name ? ` · ${activity.actor_name}` : ""}
