@@ -207,6 +207,8 @@ function StageColumn({
   onHistoryDeal: (deal: Deal) => void;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: stage.id });
+  // Prime: coluna com rolagem própria e 30 cards por vez (colunas com centenas de leads deixavam a página enorme).
+  const [limite, setLimite] = useState(30);
 
   return (
     // On mobile each column is `w-[85vw]` (with a reasonable min/max)
@@ -235,7 +237,7 @@ function StageColumn({
 
       <div
         ref={setNodeRef}
-        className={`mt-3 flex min-h-32 flex-1 flex-col gap-2.5 rounded-xl transition-all ${
+        className={`mt-3 flex min-h-32 max-h-[calc(100vh-280px)] flex-1 flex-col gap-2.5 overflow-y-auto rounded-xl pr-1 transition-all ${
           isOver
             ? "bg-primary/5 outline outline-2 outline-dashed outline-primary outline-offset-2"
             : ""
@@ -246,15 +248,22 @@ function StageColumn({
             Solte uma venda aqui
           </div>
         ) : (
-          deals.map((deal) => (
-            <DraggableDealCard
-              key={deal.id}
-              deal={deal}
-              stage={stage}
-              onEdit={onEditDeal}
-              onHistory={onHistoryDeal}
-            />
-          ))
+          <>
+            {deals.slice(0, limite).map((deal) => (
+              <DraggableDealCard
+                key={deal.id}
+                deal={deal}
+                stage={stage}
+                onEdit={onEditDeal}
+                onHistory={onHistoryDeal}
+              />
+            ))}
+            {deals.length > limite && (
+              <button type="button" onClick={() => setLimite((n) => n + 30)} className="rounded-lg border border-dashed border-border py-2 text-xs text-muted-foreground hover:bg-muted hover:text-foreground">
+                Mostrar mais {Math.min(30, deals.length - limite)} de {deals.length - limite}
+              </button>
+            )}
+          </>
         )}
       </div>
 
