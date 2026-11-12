@@ -821,10 +821,9 @@ export async function POST(request: Request) {
           }
         }
       } catch (error) {
-        importWarning =
-          error instanceof Error
-            ? error.message
-            : 'O histórico não pôde ser consultado';
+        // Erros do Supabase não são `Error`: mostra a mensagem deles também (antes virava um aviso genérico).
+        const msg = error instanceof Error ? error.message : (error as { message?: string } | null)?.message;
+        importWarning = msg ? `O histórico não pôde ser importado: ${msg}` : 'O histórico não pôde ser consultado';
       }
       return NextResponse.json({
         ok: true,
