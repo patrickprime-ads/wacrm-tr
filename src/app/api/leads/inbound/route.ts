@@ -156,6 +156,7 @@ export async function POST(request: Request) {
       utm_term: text(body.utm_term, 200),
       click_id: text(body.click_id, 300),
       ad_id: text(body.ad_id, 60),
+      source_url: text(body.ad_url, 500),
       external_lead_id: text(body.external_id, 80),
     };
 
