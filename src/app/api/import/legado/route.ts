@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { variantesTelefoneBR } from "@/lib/phone-br";
 
 import { ForbiddenError, UnauthorizedError, getCurrentAccount, toErrorResponse } from "@/lib/auth/account";
 import { canEditSettings } from "@/lib/auth/roles";
@@ -92,8 +93,14 @@ export async function POST(request: Request) {
 
     // 4. Contatos: acha pelo telefone, cria os que faltam.
     const fones = [...new Set(novos.map((l) => l.telefone))];
-    const { data: contatos } = await db.from("contacts").select("id,phone_normalized,name").eq("account_id", conta).in("phone_normalized", fones);
-    const contatoDe = new Map((contatos ?? []).map((c) => [String(c.phone_normalized), String(c.id)]));
+    // Prime: acha também com/sem o 9 (o WhatsApp às vezes guarda o celular sem o 9).
+    const todasVariantes = [...new Set(fones.flatMap((f) => variantesTelefoneBR(f)))];
+    const { data: contatos } = await db.from("contacts").select("id,phone_normalized,name").eq("account_id", conta).in("phone_normalized", todasVariantes);
+    const contatoDe = new Map<string, string>();
+    for (const f of fones) {
+      const achado = (contatos ?? []).find((c) => variantesTelefoneBR(f).includes(String(c.phone_normalized)));
+      if (achado) contatoDe.set(f, String(achado.id));
+    }
     const faltam = fones.filter((f) => !contatoDe.has(f));
     if (faltam.length) {
       const linhas = faltam.map((f) => {
@@ -126,11 +133,32 @@ export async function POST(request: Request) {
         created_at: dataValida(l.entrada) ?? new Date().toISOString(), updated_at: fechouEm ?? dataValida(l.entrada) ?? new Date().toISOString(),
       };
     });
-    const { data: criadosCards, error: erroCards } = await db.from("deals").insert(cards).select("id,legacy_key");
+    // Prime: se o lead já chegou pelo rastreio/WhatsApp e tem card aberto, atualiza esse card com os dados
+    // da planilha (status, vendedora, valores) em vez de criar outro.
+    const idsContato = [...new Set(cards.map((c) => c.contact_id).filter(Boolean))] as string[];
+    const { data: abertos } = idsContato.length
+      ? await db.from("deals").select("id,contact_id").eq("account_id", conta).is("legacy_key", null).in("contact_id", idsContato).order("created_at", { ascending: false })
+      : { data: [] as { id: string; contact_id: string }[] };
+    const cardDoContato = new Map<string, string>();
+    for (const d of abertos ?? []) if (!cardDoContato.has(String(d.contact_id))) cardDoContato.set(String(d.contact_id), String(d.id));
+    const idDe = new Map<string, string>();
+    const paraCriar: typeof cards = [];
+    for (const c of cards) {
+      const existente = c.contact_id ? cardDoContato.get(c.contact_id) : undefined;
+      if (existente && !c.archived) {
+        cardDoContato.delete(c.contact_id!);
+        const dados: Record<string, unknown> = { ...c };
+        delete dados.user_id; delete dados.account_id; delete dados.created_at; // mantém quem criou e quando chegou
+        const { error } = await db.from("deals").update(dados).eq("id", existente);
+        if (!error) { idDe.set(c.legacy_key, existente); continue; }
+      }
+      paraCriar.push(c);
+    }
+    const { data: criadosCards, error: erroCards } = paraCriar.length ? await db.from("deals").insert(paraCriar).select("id,legacy_key") : { data: [], error: null };
     if (erroCards) throw erroCards;
 
     // 6. Histórico de cada card (o que estava na coluna "Histórico" da planilha).
-    const idDe = new Map((criadosCards ?? []).map((d) => [String(d.legacy_key), String(d.id)]));
+    for (const d of criadosCards ?? []) idDe.set(String(d.legacy_key), String(d.id));
     const atividades = novos.flatMap((l) => (l.historico ?? []).slice(0, 30).map((h) => ({
       account_id: conta, deal_id: idDe.get(txt(l.chave, 80))!, actor_name: l.vendedora || "Planilha antiga", event_type: "legacy_history",
       description: txt(h.texto, 400), metadata: { importado: true }, created_at: dataValida(h.quando) ?? new Date().toISOString(),
