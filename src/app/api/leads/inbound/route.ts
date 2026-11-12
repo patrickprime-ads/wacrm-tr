@@ -177,7 +177,7 @@ export async function POST(request: Request) {
       if (name && !savedName) update.name = name;
       // Primeira origem vale: só completa o que estiver vazio ou genérico.
       const genericSource = !existing.lead_source || ["organico", "whatsapp", "other"].includes(String(existing.lead_source));
-      if (genericSource && source !== "other") Object.assign(update, attribution);
+      if ((genericSource || existing.lead_source === source) && source !== "other") Object.assign(update, attribution);
       else {
         if (!existing.utm_campaign && attribution.utm_campaign) update.utm_campaign = attribution.utm_campaign;
         if (!existing.click_id && attribution.click_id) update.click_id = attribution.click_id;

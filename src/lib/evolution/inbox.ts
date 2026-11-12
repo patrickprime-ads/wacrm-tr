@@ -197,7 +197,6 @@ export async function importEvolutionMessage(accountId: string, data: EvolutionM
                 utm_source: referral.rede,
                 ...(referral.adId ? { ad_id: referral.adId } : {}),
                 utm_medium: "paid_social",
-                utm_content: referral.label,
               }
             : {}),
         })
@@ -245,7 +244,6 @@ export async function importEvolutionMessage(accountId: string, data: EvolutionM
         utm_source: referral ? referral.rede : null,
         ad_id: referral?.adId || null,
         utm_medium: referral ? "paid_social" : null,
-        utm_content: referral?.label || null,
       })
       .select("id")
       .single();
@@ -272,7 +270,6 @@ export async function importEvolutionMessage(accountId: string, data: EvolutionM
                 utm_source: referral.rede,
                 ...(referral.adId ? { ad_id: referral.adId } : {}),
                 utm_medium: "paid_social",
-                utm_content: referral.label,
               }
             : {}),
         })

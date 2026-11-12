@@ -37,10 +37,11 @@ export function origemDoLead(c: ContatoOrigem | null | undefined): Origem | null
   return { rotulo: "WhatsApp", classe: CLASSES.neutro, ...tipo };
 }
 
-/** Nome do anúncio/campanha para mostrar junto da origem. */
+/** Nome da campanha e do anúncio (vêm do rastreio) e a chamada que aparece no anúncio (vem do WhatsApp). */
 export function detalheDoAnuncio(c: ContatoOrigem | null | undefined) {
-  if (!c) return { campanha: null as string | null, anuncio: null as string | null, link: null as string | null };
-  const anuncio = c.utm_content || (c.source_detail && c.source_detail !== "WhatsApp Business" ? c.source_detail : null);
+  if (!c) return { campanha: null as string | null, anuncio: null as string | null, chamada: null as string | null, link: null as string | null };
   const link = c.source_url && /^https:\/\//.test(c.source_url) ? c.source_url : null;
-  return { campanha: c.utm_campaign || null, anuncio, link };
+  const detalhe = c.source_detail && !/whatsapp business|^rastreio$/i.test(c.source_detail) && !c.source_detail.includes(" · ") ? c.source_detail : null;
+  const anuncio = c.utm_content && c.utm_content !== detalhe ? c.utm_content : null;
+  return { campanha: c.utm_campaign || null, anuncio, chamada: detalhe, link };
 }
