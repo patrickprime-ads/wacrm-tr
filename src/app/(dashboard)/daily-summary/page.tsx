@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Copy, Send } from "lucide-react";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
+import { fetchAllRows } from "@/lib/dashboard/queries";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
@@ -55,43 +56,88 @@ export default function DailySummaryPage() {
     setLoading(true);
     const { start, end, label } = selectedRange();
     const db = createClient();
-    const [conversationsResult, dealsResult] = await Promise.all([
-      db
-        .from("conversations")
-        .select("id,contact_id,created_at")
-        .gte("created_at", start.toISOString())
-        .lte("created_at", end.toISOString()),
-      db
-        .from("deals")
-        .select("id,value,status,created_at,assigned_to,assignee:profiles(full_name)")
-        .gte("created_at", start.toISOString())
-        .lte("created_at", end.toISOString()),
-    ]);
-    const conversations = conversationsResult.data ?? [];
-    const uniqueLeads = new Set(conversations.map((item) => item.contact_id).filter(Boolean));
-    const deals = (dealsResult.data ?? []) as Array<{
+    const from = start.toISOString();
+    const until = end.toISOString();
+    type DealRow = {
       id: string;
-      value: number;
+      value: number | null;
       status: string;
+      created_at: string;
+      closed_at: string | null;
+      updated_at: string | null;
+      seller_name: string | null;
       assignee?: { full_name?: string } | Array<{ full_name?: string }> | null;
-    }>;
-    const won = deals.filter((deal) => deal.status === "won");
-    const lost = deals.filter((deal) => deal.status === "lost");
+    };
+    const dealColumns =
+      "id,value,status,created_at,closed_at,updated_at,seller_name,assignee:profiles!deals_assigned_to_fkey(full_name)";
+    // Tudo paginado (o banco devolve no máximo 1.000 linhas por vez) e sem filtro de
+    // vendedora: qualquer pessoa da equipe gera o resultado geral da unidade.
+    const [conversations, createdDeals, wonDeals, lostDeals] = await Promise.all([
+      fetchAllRows<{ contact_id: string | null }>((withCount) =>
+        db
+          .from("conversations")
+          .select("contact_id", withCount ? { count: "exact" } : undefined)
+          .gte("created_at", from)
+          .lte("created_at", until)
+          .order("id"),
+      ),
+      fetchAllRows<DealRow>((withCount) =>
+        db
+          .from("deals")
+          .select(dealColumns, withCount ? { count: "exact" } : undefined)
+          .gte("created_at", from)
+          .lte("created_at", until)
+          .order("id"),
+      ),
+      // Venda fechada no período conta mesmo que o lead tenha chegado antes.
+      fetchAllRows<DealRow>((withCount) =>
+        db
+          .from("deals")
+          .select(dealColumns, withCount ? { count: "exact" } : undefined)
+          .eq("status", "won")
+          .gte("updated_at", from)
+          .order("id"),
+      ),
+      fetchAllRows<DealRow>((withCount) =>
+        db
+          .from("deals")
+          .select(dealColumns, withCount ? { count: "exact" } : undefined)
+          .eq("status", "lost")
+          .gte("updated_at", from)
+          .order("id"),
+      ),
+    ]).catch((error) => {
+      console.error("[resumo] falha ao carregar", error);
+      toast.error("Não foi possível gerar o resumo");
+      return null;
+    }) ?? [[], [], [], []];
+    const closedIn = (deal: DealRow) => {
+      const when = new Date(deal.closed_at || deal.updated_at || deal.created_at).getTime();
+      return when >= start.getTime() && when <= end.getTime();
+    };
+    const uniqueLeads = new Set(conversations.map((item) => item.contact_id).filter(Boolean));
+    const deals = createdDeals;
+    const won = wonDeals.filter(closedIn);
+    const lost = lostDeals.filter(closedIn);
     const open = deals.filter((deal) => deal.status === "open");
     const revenue = won.reduce((total, deal) => total + Number(deal.value || 0), 0);
     const decided = won.length + lost.length;
     const conversion = decided ? Math.round((won.length / decided) * 1000) / 10 : 0;
-    const sellers = new Map<string, { opportunities: number; sales: number; value: number }>();
-    for (const deal of deals) {
+    const sellerOf = (deal: DealRow) => {
       const relation = Array.isArray(deal.assignee) ? deal.assignee[0] : deal.assignee;
-      const name = relation?.full_name || "Sem responsável";
+      return relation?.full_name || deal.seller_name || "Sem responsável";
+    };
+    const sellers = new Map<string, { opportunities: number; sales: number; value: number }>();
+    const rowOf = (name: string) => {
       const row = sellers.get(name) ?? { opportunities: 0, sales: 0, value: 0 };
-      row.opportunities += 1;
-      if (deal.status === "won") {
-        row.sales += 1;
-        row.value += Number(deal.value || 0);
-      }
       sellers.set(name, row);
+      return row;
+    };
+    for (const deal of deals) rowOf(sellerOf(deal)).opportunities += 1;
+    for (const deal of won) {
+      const row = rowOf(sellerOf(deal));
+      row.sales += 1;
+      row.value += Number(deal.value || 0);
     }
     const money = (value: number) =>
       new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(value);
@@ -111,7 +157,7 @@ export default function DailySummaryPage() {
         "",
         "👩‍💼 *Desempenho por vendedor:*",
         ...([...sellers.entries()].length
-          ? [...sellers.entries()].map(
+          ? [...sellers.entries()].sort((a, b) => b[1].value - a[1].value || b[1].sales - a[1].sales).map(
               ([name, row]) =>
                 `• ${name}: ${row.opportunities} oportunidades | ${row.sales} vendas | ${money(row.value)}`,
             )

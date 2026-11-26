@@ -346,7 +346,7 @@ export function DealForm({
     setStatusAction(status);
     const { error } = await supabase
       .from('deals')
-      .update({ status })
+      .update({ status, closed_at: status === 'open' ? null : new Date().toISOString() })
       .eq('id', deal.id);
     setStatusAction(null);
     if (error) {
