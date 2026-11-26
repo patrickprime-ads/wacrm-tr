@@ -171,7 +171,7 @@ export function InviteMemberDialog({
     // wouldn't be enough to disambiguate.
     const accountName = result?.accountName ?? 'our wacrm account';
     const message = `Seu acesso ao CRM da ${accountName}: crie seu login por este link (vale ${result?.expiresInDays} dias): ${url}`;
-    return `https://wa.me/?text=${encodeURIComponent(message)}`;
+    return `https://api.whatsapp.com/send?text=${encodeURIComponent(message)}`;
   }
 
   return (

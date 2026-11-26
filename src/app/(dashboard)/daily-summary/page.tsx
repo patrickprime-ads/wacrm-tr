@@ -129,7 +129,7 @@ export default function DailySummaryPage() {
 
   function sendWhatsApp() {
     if (!summary) return;
-    window.open(`https://wa.me/?text=${encodeURIComponent(summary)}`, "_blank", "noopener,noreferrer");
+    window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(summary)}`, "_blank", "noopener,noreferrer");
   }
 
   return (
