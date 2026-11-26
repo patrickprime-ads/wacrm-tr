@@ -4,7 +4,6 @@ import { useCallback, useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/hooks/use-auth'
 import { formatCurrency } from '@/lib/currency'
-import { useTranslations } from 'next-intl'
 import {
   MessageSquare,
   UserPlus,
@@ -14,12 +13,14 @@ import {
 
 import {
   loadConversationsSeries,
-  loadMetrics,
+  loadPeriodMetrics,
   loadPipelineDonut,
-  loadResponseTime, loadConversionsInRange } from '@/lib/dashboard/queries'
+  loadResponseTime,
+  loadConversionsInRange,
+  type PeriodMetrics,
+} from '@/lib/dashboard/queries'
 import type {
   ConversationsSeriesPoint,
-  MetricsBundle,
   PipelineDonutData,
   ResponseTimeSummary,
 } from '@/lib/dashboard/types'
@@ -39,94 +40,70 @@ function dateInputValue(date: Date) {
   return new Intl.DateTimeFormat('en-CA').format(date)
 }
 
+type PeriodWindow = { start: string; end: string; days: number; label: string }
+
+function presetWindow(days: number): PeriodWindow {
+  const start = new Date()
+  start.setHours(0, 0, 0, 0)
+  start.setDate(start.getDate() - (days - 1))
+  const end = new Date()
+  end.setHours(0, 0, 0, 0)
+  end.setDate(end.getDate() + 1)
+  const label = days === 1 ? 'hoje' : `nos últimos ${days} dias`
+  return { start: start.toISOString(), end: end.toISOString(), days, label }
+}
+
 export default function DashboardPage() {
   const { defaultCurrency } = useAuth()
-  const t = useTranslations('dashboard')
-  const [metrics, setMetrics] = useState<MetricsBundle | null>(null)
-  const [metricsLoading, setMetricsLoading] = useState(true)
-
-  const [range, setRange] = useState<RangeDays>(30)
-  const [series, setSeries] = useState<Record<number, ConversationsSeriesPoint[] | null>>({
-    7: null,
-    30: null,
-    90: null,
-  })
-  const [seriesLoading, setSeriesLoading] = useState(true)
-
-  const [pipeline, setPipeline] = useState<PipelineDonutData | null>(null)
-  const [pipelineLoading, setPipelineLoading] = useState(true)
-
-  const [responseTime, setResponseTime] = useState<ResponseTimeSummary | null>(null)
-  const [responseTimeLoading, setResponseTimeLoading] = useState(true)
-  const [conversions, setConversions] = useState<{ current: number; previous: number; sales: number } | null>(null)
   const [periodMode, setPeriodMode] = useState<'preset' | 'custom'>('preset')
   const [periodStart, setPeriodStart] = useState(() => dateInputValue(new Date(Date.now() - 29 * 86_400_000)))
   const [periodEnd, setPeriodEnd] = useState(() => dateInputValue(new Date()))
+  // Um único período manda em todo o Painel: cards, gráfico e funil.
+  const [win, setWin] = useState<PeriodWindow>(() => presetWindow(30))
+  const range: RangeDays = win.days
 
-  const loadAll = useCallback(() => {
-    const db = createClient()
+  const [metrics, setMetrics] = useState<PeriodMetrics | null>(null)
+  const [conversions, setConversions] = useState<{ current: number; previous: number; sales: number } | null>(null)
+  const [series, setSeries] = useState<Record<number, ConversationsSeriesPoint[] | null>>({})
+  const [pipeline, setPipeline] = useState<PipelineDonutData | null>(null)
+  const [responseTime, setResponseTime] = useState<ResponseTimeSummary | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [responseTimeLoading, setResponseTimeLoading] = useState(true)
 
-    void loadMetrics(db)
-      .then((m) => setMetrics(m))
-      .catch((err) => console.error('[dashboard] metrics failed:', err))
-      .finally(() => setMetricsLoading(false))
-
-    void loadConversationsSeries(db, 30)
-      .then((s) => setSeries((prev) => ({ ...prev, 30: s })))
-      .catch((err) => console.error('[dashboard] series failed:', err))
-      .finally(() => setSeriesLoading(false))
-
-    void loadPipelineDonut(db)
-      .then((p) => setPipeline(p))
-      .catch((err) => console.error('[dashboard] pipeline failed:', err))
-      .finally(() => setPipelineLoading(false))
-
-    void loadResponseTime(db)
-      .then((r) => setResponseTime(r))
+  useEffect(() => {
+    void loadResponseTime(createClient())
+      .then(setResponseTime)
       .catch((err) => console.error('[dashboard] response time failed:', err))
       .finally(() => setResponseTimeLoading(false))
-
   }, [])
 
   useEffect(() => {
-    loadAll()
-  }, [loadAll])
-
-  // Card de conversões segue o período escolhido (Hoje, 7, 30, 90 dias ou personalizado).
-  const [conversionWindow, setConversionWindow] = useState<{ start: string; end: string } | null>(null)
-  useEffect(() => {
-    const win = conversionWindow ?? (() => {
-      const start = new Date()
-      start.setHours(0, 0, 0, 0)
-      start.setDate(start.getDate() - (range - 1))
-      const end = new Date()
-      end.setHours(0, 0, 0, 0)
-      end.setDate(end.getDate() + 1)
-      return { start: start.toISOString(), end: end.toISOString() }
-    })()
     let cancelled = false
-    loadConversionsInRange(createClient(), win.start, win.end)
-      .then((c) => { if (!cancelled) setConversions(c) })
-      .catch((err) => console.error('[dashboard] conversions failed:', err))
+    const db = createClient()
+    const isCustom = win.label.includes(' a ')
+    Promise.all([
+      loadPeriodMetrics(db, win.start, win.end),
+      loadConversionsInRange(db, win.start, win.end),
+      loadConversationsSeries(db, win.days, isCustom ? win.start : undefined, isCustom ? win.end : undefined),
+      loadPipelineDonut(db, win.start, win.end),
+    ])
+      .then(([m, c, s, p]) => {
+        if (cancelled) return
+        setMetrics(m)
+        setConversions(c)
+        setSeries({ [win.days]: s })
+        setPipeline(p)
+      })
+      .catch((err) => console.error('[dashboard] período falhou:', err))
+      .finally(() => { if (!cancelled) setLoading(false) })
     return () => { cancelled = true }
-  }, [range, conversionWindow])
+  }, [win])
 
-  const handleRangeChange = useCallback(
-    (r: RangeDays) => {
-      setConversionWindow(null)
-      setRange(r)
-      // "Hoje" (1) não tinha posição no estado inicial: undefined !== null fazia a busca
-      // ser pulada e o gráfico ficava travado. Só pula quando já há dados carregados.
-      if (Array.isArray(series[r])) return
-      setSeriesLoading(true)
-      const db = createClient()
-      loadConversationsSeries(db, r)
-        .then((s) => setSeries((prev) => ({ ...prev, [r]: s })))
-        .catch((err) => console.error('[dashboard] series failed:', err))
-        .finally(() => setSeriesLoading(false))
-    },
-    [series],
-  )
+  const handleRangeChange = useCallback((r: RangeDays) => {
+    setPeriodMode('preset')
+    setLoading(true)
+    setWin(presetWindow(r))
+  }, [])
 
   const applyCustomPeriod = useCallback(() => {
     const start = new Date(`${periodStart}T00:00:00`)
@@ -134,28 +111,26 @@ export default function DashboardPage() {
     if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end < start) return
     end.setDate(end.getDate() + 1)
     const days = Math.max(1, Math.round((end.getTime() - start.getTime()) / 86_400_000))
-    setConversionWindow({ start: start.toISOString(), end: end.toISOString() })
-    setRange(days)
-    setSeriesLoading(true)
-    void loadConversationsSeries(createClient(), days, start.toISOString(), end.toISOString())
-      .then((data) => setSeries((previous) => ({ ...previous, [days]: data })))
-      .catch((err) => console.error('[dashboard] custom series failed:', err))
-      .finally(() => setSeriesLoading(false))
+    const label = `de ${start.toLocaleDateString('pt-BR')} a ${new Date(end.getTime() - 1).toLocaleDateString('pt-BR')}`
+    setLoading(true)
+    setWin({ start: start.toISOString(), end: end.toISOString(), days, label })
   }, [periodStart, periodEnd])
+
+  const presetValue = [1, 7, 30, 90].includes(range) && periodMode === 'preset' ? String(range) : 'custom'
 
   return (
     <div className="space-y-5">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">{t('title')}</h1>
+          <h1 className="text-2xl font-bold text-foreground">Painel</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            {t('subtitle')}
+            Contatos, conversas, vendas e conversões do período escolhido
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2 self-start text-sm text-muted-foreground sm:self-auto">
           <span>Período</span>
           <select
-            value={periodMode === 'custom' ? 'custom' : String(range)}
+            value={presetValue}
             onChange={(event) => {
               if (event.target.value === 'custom') return setPeriodMode('custom')
               setPeriodMode('preset')
@@ -181,60 +156,53 @@ export default function DashboardPage() {
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {metricsLoading || !metrics ? (
+        {loading || !metrics ? (
           Array.from({ length: 4 }).map((_, i) => <SkeletonCard key={i} />)
         ) : (
           <>
             <MetricCard
-              title={t('active_conversations')}
-              value={metrics.activeConversations.current.toLocaleString()}
+              title="Conversas no período"
+              value={metrics.conversations.current.toLocaleString()}
               icon={MessageSquare}
               delta={{
-                sign: metrics.activeConversations.previous,
-                label: deltaLabel(metrics.activeConversations.previous, t('new_today_vs_yesterday')),
+                sign: metrics.conversations.current - metrics.conversations.previous,
+                label: deltaLabel(metrics.conversations.current - metrics.conversations.previous, 'vs período anterior'),
               }}
             />
             <MetricCard
-              title={t('new_contacts_today')}
-              value={metrics.newContactsToday.current.toLocaleString()}
+              title="Novos leads"
+              value={metrics.newLeads.current.toLocaleString()}
               icon={UserPlus}
               delta={{
-                sign: metrics.newContactsToday.current - metrics.newContactsToday.previous,
-                label: deltaLabel(
-                  metrics.newContactsToday.current - metrics.newContactsToday.previous,
-                  t('vs_yesterday'),
-                ),
+                sign: metrics.newLeads.current - metrics.newLeads.previous,
+                label: deltaLabel(metrics.newLeads.current - metrics.newLeads.previous, 'vs período anterior'),
               }}
             />
             <MetricCard
-              title={t('open_deals_value')}
-              value={formatCurrency(metrics.openDealsValue, defaultCurrency)}
+              title="Vendido no período"
+              value={formatCurrency(metrics.sales.value, defaultCurrency)}
               icon={DollarSign}
-              subtitle={`${metrics.openDealsCount} ${t('open_deals')}`}
+              subtitle={`${metrics.sales.count} venda${metrics.sales.count === 1 ? '' : 's'} · ${metrics.openDeals.count} em aberto (${formatCurrency(metrics.openDeals.value, defaultCurrency)})`}
             />
             <MetricCard
-              title={range === 1 && !conversionWindow ? 'Conversões hoje' : 'Conversões no período'}
-              value={(conversions?.current ?? metrics.trackedConversionsToday.current).toLocaleString()}
+              title="Conversões no período"
+              value={(conversions?.current ?? 0).toLocaleString()}
               icon={Target}
               delta={{
                 sign: (conversions?.current ?? 0) - (conversions?.previous ?? 0),
-                label: conversions
-                  ? `${conversions.sales} venda${conversions.sales === 1 ? '' : 's'} · ${deltaLabel(conversions.current - conversions.previous, 'vs período anterior')}`
-                  : deltaLabel(
-                      metrics.trackedConversionsToday.current - metrics.trackedConversionsToday.previous,
-                      t('vs_yesterday'),
-                    ),
+                label: `${conversions?.sales ?? 0} cliente${conversions?.sales === 1 ? '' : 's'} · ${deltaLabel((conversions?.current ?? 0) - (conversions?.previous ?? 0), 'vs período anterior')}`,
               }}
             />
           </>
         )}
       </div>
+      <p className="-mt-2 text-xs text-muted-foreground">Mostrando {win.label}.</p>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">
         <div className="h-full lg:col-span-3">
           <ConversationsChart
             series={series}
-            loading={seriesLoading}
+            loading={loading}
             range={range}
             onRangeChange={handleRangeChange}
           />
@@ -242,7 +210,7 @@ export default function DashboardPage() {
         <div className="h-full lg:col-span-2">
           <PipelineDonut
             data={pipeline}
-            loading={pipelineLoading}
+            loading={loading}
             currency={defaultCurrency}
           />
         </div>

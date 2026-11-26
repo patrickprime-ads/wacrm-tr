@@ -241,6 +241,59 @@ export async function loadConversionsInRange(
   return { current: cur.count ?? 0, previous: prev.count ?? 0, sales: sales.count ?? 0 }
 }
 
+export interface PeriodMetrics {
+  conversations: { current: number; previous: number }
+  newLeads: { current: number; previous: number }
+  sales: { count: number; value: number }
+  openDeals: { count: number; value: number }
+}
+
+/**
+ * Números dos cards do Painel para o período escolhido [start, end), comparados com o
+ * período anterior de mesmo tamanho.
+ */
+export async function loadPeriodMetrics(db: DB, start: string, end: string): Promise<PeriodMetrics> {
+  const from = new Date(start).getTime()
+  const until = new Date(end).getTime()
+  const prevStart = new Date(from - (until - from)).toISOString()
+  const [convCur, convPrev, entries, won, open] = await Promise.all([
+    db.from('conversations').select('id', { count: 'exact', head: true }).gte('created_at', start).lt('created_at', end),
+    db.from('conversations').select('id', { count: 'exact', head: true }).gte('created_at', prevStart).lt('created_at', start),
+    loadRecentEntries(db, prevStart),
+    // Vendas fechadas no período (pela data de fechamento; sem ela, pela última alteração).
+    fetchAllRows<{ value: number | null; closed_at: string | null; updated_at: string | null }>((withCount) =>
+      db
+        .from('deals')
+        .select('value, closed_at, updated_at', withCount ? { count: 'exact' } : undefined)
+        .eq('status', 'won')
+        .gte('updated_at', start)
+        .order('id'),
+    ),
+    fetchAllRows<{ value: number | null }>((withCount) =>
+      db
+        .from('deals')
+        .select('value', withCount ? { count: 'exact' } : undefined)
+        .eq('status', 'open')
+        .gte('created_at', start)
+        .lt('created_at', end)
+        .order('id'),
+    ),
+  ])
+  const wonInRange = won.filter((d) => {
+    const t = new Date(d.closed_at || d.updated_at || '').getTime()
+    return t >= from && t < until
+  })
+  return {
+    conversations: { current: convCur.count ?? 0, previous: convPrev.count ?? 0 },
+    newLeads: {
+      current: entries.filter((t) => t >= from && t < until).length,
+      previous: entries.filter((t) => t < from).length,
+    },
+    sales: { count: wonInRange.length, value: wonInRange.reduce((sum, d) => sum + (d.value ?? 0), 0) },
+    openDeals: { count: open.length, value: open.reduce((sum, d) => sum + (d.value ?? 0), 0) },
+  }
+}
+
 // --- 2. Conversations over time ---------------------------------------
 
 export async function loadConversationsSeries(
@@ -289,12 +342,15 @@ function dayKeysFromRange(start: string, endExclusive: string): string[] {
 
 // --- 3. Pipeline donut -------------------------------------------------
 
-export async function loadPipelineDonut(db: DB): Promise<PipelineDonutData> {
+export async function loadPipelineDonut(db: DB, start?: string, end?: string): Promise<PipelineDonutData> {
   const [stagesRes, deals] = await Promise.all([
     db.from('pipeline_stages').select('id, name, color, pipeline_id, position').order('position'),
-    fetchAllRows<{ stage_id: string; value: number | null }>((withCount) =>
-      db.from('deals').select('stage_id, value', withCount ? { count: 'exact' } : undefined).eq('status', 'open').order('id'),
-    ),
+    fetchAllRows<{ stage_id: string; value: number | null }>((withCount) => {
+      let query = db.from('deals').select('stage_id, value', withCount ? { count: 'exact' } : undefined).eq('status', 'open')
+      if (start) query = query.gte('created_at', start)
+      if (end) query = query.lt('created_at', end)
+      return query.order('id')
+    }),
   ])
 
   const stages =
