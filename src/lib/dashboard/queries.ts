@@ -27,7 +27,131 @@ import type {
 
 type DB = SupabaseClient
 
+// O PostgREST entrega no máximo 1.000 linhas por consulta. Sem paginar, os
+// números travavam em 1.000 ("1000 vendas abertas") e o gráfico zerava nos
+// últimos dias, porque só chegavam as 1.000 mensagens mais antigas do período.
+const PAGE_SIZE = 1000
+const PARALLEL_PAGES = 6
+const MAX_ROWS = 200_000
+
+type PageQuery<T> = (withCount: boolean) => {
+  range: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: unknown; count?: number | null }>
+}
+
+/** Busca todas as linhas de uma consulta, em páginas de 1.000 (as páginas extras em paralelo). */
+export async function fetchAllRows<T>(makeQuery: PageQuery<T>): Promise<T[]> {
+  const first = await makeQuery(true).range(0, PAGE_SIZE - 1)
+  if (first.error) throw first.error
+  const rows: T[] = [...(first.data ?? [])]
+  const total = Math.min(first.count ?? rows.length, MAX_ROWS)
+  if (rows.length < PAGE_SIZE || total <= PAGE_SIZE) return rows
+
+  const starts: number[] = []
+  for (let from = PAGE_SIZE; from < total; from += PAGE_SIZE) starts.push(from)
+  for (let i = 0; i < starts.length; i += PARALLEL_PAGES) {
+    const pages = await Promise.all(
+      starts.slice(i, i + PARALLEL_PAGES).map((from) => makeQuery(false).range(from, from + PAGE_SIZE - 1)),
+    )
+    for (const page of pages) {
+      if (page.error) throw page.error
+      rows.push(...(page.data ?? []))
+    }
+  }
+  return rows
+}
+
+/** Divide uma lista de ids em pedaços para filtros .in() sem estourar o tamanho da URL. */
+function chunks<T>(items: T[], size = 150): T[][] {
+  const out: T[][] = []
+  for (let i = 0; i < items.length; i += size) out.push(items.slice(i, i + size))
+  return out
+}
+
 // --- 1. Metric cards ---------------------------------------------------
+
+/**
+ * Data de entrada de cada lead que entrou desde `since`. A entrada de um lead é a
+ * primeira mensagem que ele mandou (não a data em que um conector o importou); sem
+ * mensagem, vale a data de criação do contato. Só busca o que pode ter entrado no
+ * período, para não varrer o histórico inteiro de mensagens.
+ */
+async function loadRecentEntries(db: DB, since: string): Promise<number[]> {
+  const sinceTime = new Date(since).getTime()
+  const [recentMessages, recentContacts] = await Promise.all([
+    fetchAllRows<{ conversation_id: string; created_at: string }>((withCount) =>
+      db
+        .from('messages')
+        .select('conversation_id, created_at', withCount ? { count: 'exact' } : undefined)
+        .eq('sender_type', 'customer')
+        .gte('created_at', since)
+        .order('created_at')
+        .order('id'),
+    ),
+    fetchAllRows<{ id: string; created_at: string }>((withCount) =>
+      db.from('contacts').select('id, created_at', withCount ? { count: 'exact' } : undefined).gte('created_at', since).order('id'),
+    ),
+  ])
+
+  // Conversa → contato, só das conversas com mensagem recente.
+  const conversationIds = [...new Set(recentMessages.map((m) => m.conversation_id))]
+  const contactOfConversation = new Map<string, string>()
+  for (const ids of chunks(conversationIds)) {
+    const { data } = await db.from('conversations').select('id, contact_id').in('id', ids)
+    for (const row of (data ?? []) as { id: string; contact_id: string | null }[]) {
+      if (row.contact_id) contactOfConversation.set(row.id, row.contact_id)
+    }
+  }
+
+  // Primeira mensagem recente de cada contato.
+  const firstRecent = new Map<string, number>()
+  for (const m of recentMessages) {
+    const contactId = contactOfConversation.get(m.conversation_id)
+    const time = new Date(m.created_at).getTime()
+    if (!contactId || Number.isNaN(time)) continue
+    const current = firstRecent.get(contactId)
+    if (current === undefined || time < current) firstRecent.set(contactId, time)
+  }
+
+  const candidates = [...new Set([...firstRecent.keys(), ...recentContacts.map((c) => c.id)])]
+  if (!candidates.length) return []
+
+  // Data de criação de cada candidato e se ele já tinha mandado mensagem antes do período.
+  const createdAt = new Map<string, number>()
+  for (const c of recentContacts) createdAt.set(c.id, new Date(c.created_at).getTime())
+  const enteredBefore = new Set<string>()
+  for (const ids of chunks(candidates)) {
+    const missing = ids.filter((id) => !createdAt.has(id))
+    if (missing.length) {
+      const { data } = await db.from('contacts').select('id, created_at').in('id', missing)
+      for (const row of (data ?? []) as { id: string; created_at: string }[]) {
+        createdAt.set(row.id, new Date(row.created_at).getTime())
+      }
+    }
+    const { data: convs } = await db.from('conversations').select('id, contact_id').in('contact_id', ids)
+    const convRows = (convs ?? []) as { id: string; contact_id: string }[]
+    for (const convIds of chunks(convRows.map((c) => c.id))) {
+      const { data: older } = await db
+        .from('messages')
+        .select('conversation_id')
+        .eq('sender_type', 'customer')
+        .lt('created_at', since)
+        .in('conversation_id', convIds)
+        .limit(1000)
+      const olderConvs = new Set(((older ?? []) as { conversation_id: string }[]).map((m) => m.conversation_id))
+      for (const c of convRows) if (olderConvs.has(c.id)) enteredBefore.add(c.contact_id)
+    }
+  }
+
+  const entries: number[] = []
+  for (const id of candidates) {
+    if (enteredBefore.has(id)) continue
+    const created = createdAt.get(id)
+    const first = firstRecent.get(id)
+    const entry = Math.min(created ?? Number.POSITIVE_INFINITY, first ?? Number.POSITIVE_INFINITY)
+    if (Number.isFinite(entry) && entry >= sinceTime) entries.push(entry)
+  }
+  return entries
+}
 
 export async function loadMetrics(db: DB): Promise<MetricsBundle> {
   const todayStart = startOfLocalDay().toISOString()
@@ -37,12 +161,10 @@ export async function loadMetrics(db: DB): Promise<MetricsBundle> {
     openConvCur,
     newConvToday,
     newConvYesterday,
-    contacts,
-    conversations,
-    incomingMessages,
-    openDeals,
+    openDealsRows,
     trackedConversionsToday,
     trackedConversionsYesterday,
+    entries,
   ] = await Promise.all([
     db.from('conversations').select('id', { count: 'exact', head: true }).eq('status', 'open'),
     db
@@ -56,17 +178,9 @@ export async function loadMetrics(db: DB): Promise<MetricsBundle> {
       .eq('status', 'open')
       .gte('created_at', yesterdayStart)
       .lt('created_at', todayStart),
-    db
-      .from('contacts')
-      .select('id, created_at'),
-    db
-      .from('conversations')
-      .select('id, contact_id'),
-    db
-      .from('messages')
-      .select('conversation_id, created_at')
-      .eq('sender_type', 'customer'),
-    db.from('deals').select('value, status').eq('status', 'open'),
+    fetchAllRows<{ value: number | null }>((withCount) =>
+      db.from('deals').select('value', withCount ? { count: 'exact' } : undefined).eq('status', 'open').order('id'),
+    ),
     db
       .from('contacts')
       .select('id', { count: 'exact', head: true })
@@ -78,34 +192,14 @@ export async function loadMetrics(db: DB): Promise<MetricsBundle> {
       .in('conversion_status', ['qualified_lead', 'customer', 'lost'])
       .gte('updated_at', yesterdayStart)
       .lt('updated_at', todayStart),
+    loadRecentEntries(db, yesterdayStart),
   ])
 
-  const openDealsRows = (openDeals.data ?? []) as { value: number | null }[]
   const openDealsValue = openDealsRows.reduce((sum, d) => sum + (d.value ?? 0), 0)
-
-  // A lead's entry date is its first inbound message, not the date at
-  // which a connector happened to import it. Manual contacts keep their
-  // own creation date as the fallback.
-  const contactForConversation = new Map<string, string>()
-  for (const row of (conversations.data ?? []) as { id: string; contact_id: string | null }[]) {
-    if (row.contact_id) contactForConversation.set(row.id, row.contact_id)
-  }
-  const firstEntryAt = new Map<string, number>()
-  for (const row of (contacts.data ?? []) as { id: string; created_at: string }[]) {
-    const time = new Date(row.created_at).getTime()
-    if (!Number.isNaN(time)) firstEntryAt.set(row.id, time)
-  }
-  for (const row of (incomingMessages.data ?? []) as { conversation_id: string; created_at: string }[]) {
-    const contactId = contactForConversation.get(row.conversation_id)
-    const time = new Date(row.created_at).getTime()
-    if (!contactId || Number.isNaN(time)) continue
-    const existing = firstEntryAt.get(contactId)
-    if (existing === undefined || time < existing) firstEntryAt.set(contactId, time)
-  }
   const countEntries = (start: string, end?: string) => {
     const from = new Date(start).getTime()
     const until = end ? new Date(end).getTime() : Number.POSITIVE_INFINITY
-    return [...firstEntryAt.values()].filter((time) => time >= from && time < until).length
+    return entries.filter((time) => time >= from && time < until).length
   }
 
   return {
@@ -129,6 +223,24 @@ export async function loadMetrics(db: DB): Promise<MetricsBundle> {
   }
 }
 
+/** Conversões (Qualificado, Cliente, Desqualificado) registradas no período e no período anterior de mesmo tamanho. */
+export async function loadConversionsInRange(
+  db: DB,
+  start: string,
+  end: string,
+): Promise<{ current: number; previous: number; sales: number }> {
+  const from = new Date(start).getTime()
+  const until = new Date(end).getTime()
+  const prevStart = new Date(from - (until - from)).toISOString()
+  const statuses = ['qualified_lead', 'customer', 'lost']
+  const [cur, prev, sales] = await Promise.all([
+    db.from('contacts').select('id', { count: 'exact', head: true }).in('conversion_status', statuses).gte('converted_at', start).lt('converted_at', end),
+    db.from('contacts').select('id', { count: 'exact', head: true }).in('conversion_status', statuses).gte('converted_at', prevStart).lt('converted_at', start),
+    db.from('contacts').select('id', { count: 'exact', head: true }).eq('conversion_status', 'customer').gte('converted_at', start).lt('converted_at', end),
+  ])
+  return { current: cur.count ?? 0, previous: prev.count ?? 0, sales: sales.count ?? 0 }
+}
+
 // --- 2. Conversations over time ---------------------------------------
 
 export async function loadConversationsSeries(
@@ -138,10 +250,14 @@ export async function loadConversationsSeries(
   customEnd?: string,
 ): Promise<ConversationsSeriesPoint[]> {
   const start = customStart ?? daysAgoStart(rangeDays - 1).toISOString()
-  let query = db.from('messages').select('created_at, sender_type').gte('created_at', start)
-  if (customEnd) query = query.lt('created_at', customEnd)
-  const { data, error } = await query.order('created_at', { ascending: true })
-  if (error) throw error
+  const data = await fetchAllRows<{ created_at: string; sender_type: string }>((withCount) => {
+    let query = db
+      .from('messages')
+      .select('created_at, sender_type', withCount ? { count: 'exact' } : undefined)
+      .gte('created_at', start)
+    if (customEnd) query = query.lt('created_at', customEnd)
+    return query.order('created_at', { ascending: true }).order('id')
+  })
 
   const keys = customStart && customEnd
     ? dayKeysFromRange(customStart, customEnd)
@@ -174,14 +290,15 @@ function dayKeysFromRange(start: string, endExclusive: string): string[] {
 // --- 3. Pipeline donut -------------------------------------------------
 
 export async function loadPipelineDonut(db: DB): Promise<PipelineDonutData> {
-  const [stagesRes, dealsRes] = await Promise.all([
+  const [stagesRes, deals] = await Promise.all([
     db.from('pipeline_stages').select('id, name, color, pipeline_id, position').order('position'),
-    db.from('deals').select('stage_id, value, status').eq('status', 'open'),
+    fetchAllRows<{ stage_id: string; value: number | null }>((withCount) =>
+      db.from('deals').select('stage_id, value', withCount ? { count: 'exact' } : undefined).eq('status', 'open').order('id'),
+    ),
   ])
 
   const stages =
     (stagesRes.data ?? []) as { id: string; name: string; color: string }[]
-  const deals = (dealsRes.data ?? []) as { stage_id: string; value: number | null }[]
 
   const byStage = new Map<string, { count: number; total: number }>()
   for (const d of deals) {
@@ -219,15 +336,17 @@ export async function loadResponseTime(db: DB): Promise<ResponseTimeSummary> {
   // with enough overlap if the user? opens the dashboard late on a
   // Monday.
   const fourteenDaysAgo = daysAgoStart(13).toISOString()
-  const { data, error } = await db
-    .from('messages')
-    .select('conversation_id, sender_type, created_at')
-    .gte('created_at', fourteenDaysAgo)
-    .order('conversation_id', { ascending: true })
-    .order('created_at', { ascending: true })
-  if (error) throw error
+  const data = await fetchAllRows<{ conversation_id: string; sender_type: string; created_at: string }>((withCount) =>
+    db
+      .from('messages')
+      .select('conversation_id, sender_type, created_at', withCount ? { count: 'exact' } : undefined)
+      .gte('created_at', fourteenDaysAgo)
+      .order('conversation_id', { ascending: true })
+      .order('created_at', { ascending: true })
+      .order('id'),
+  )
 
-  const rows = (data ?? []) as {
+  const rows = data as {
     conversation_id: string
     sender_type: string
     created_at: string

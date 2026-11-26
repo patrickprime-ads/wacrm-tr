@@ -360,6 +360,21 @@ export function DealForm({
           lead_temperature: status === 'won' ? 'vendido' : 'perdido',
         })
         .eq('id', deal.contact_id);
+      // Ganhou → lead vira Cliente e a compra (com o valor da venda) vai para a
+      // Meta/Google; Perdeu → Desqualificado. Preenche "Conversões no Tracking".
+      try {
+        await fetch('/api/lead-tracking/convert', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({
+            contact_id: deal.contact_id,
+            status: status === 'won' ? 'customer' : 'lost',
+            ...(status === 'won' && deal.value ? { value: Number(deal.value) } : {}),
+          }),
+        });
+      } catch (err) {
+        console.warn('[deal] envio da conversão falhou', err);
+      }
     }
     toast.success(
       status === 'won'

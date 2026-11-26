@@ -16,8 +16,7 @@ import {
   loadConversationsSeries,
   loadMetrics,
   loadPipelineDonut,
-  loadResponseTime,
-} from '@/lib/dashboard/queries'
+  loadResponseTime, loadConversionsInRange } from '@/lib/dashboard/queries'
 import type {
   ConversationsSeriesPoint,
   MetricsBundle,
@@ -59,6 +58,7 @@ export default function DashboardPage() {
 
   const [responseTime, setResponseTime] = useState<ResponseTimeSummary | null>(null)
   const [responseTimeLoading, setResponseTimeLoading] = useState(true)
+  const [conversions, setConversions] = useState<{ current: number; previous: number; sales: number } | null>(null)
   const [periodMode, setPeriodMode] = useState<'preset' | 'custom'>('preset')
   const [periodStart, setPeriodStart] = useState(() => dateInputValue(new Date(Date.now() - 29 * 86_400_000)))
   const [periodEnd, setPeriodEnd] = useState(() => dateInputValue(new Date()))
@@ -92,10 +92,32 @@ export default function DashboardPage() {
     loadAll()
   }, [loadAll])
 
+  // Card de conversões segue o período escolhido (Hoje, 7, 30, 90 dias ou personalizado).
+  const [conversionWindow, setConversionWindow] = useState<{ start: string; end: string } | null>(null)
+  useEffect(() => {
+    const win = conversionWindow ?? (() => {
+      const start = new Date()
+      start.setHours(0, 0, 0, 0)
+      start.setDate(start.getDate() - (range - 1))
+      const end = new Date()
+      end.setHours(0, 0, 0, 0)
+      end.setDate(end.getDate() + 1)
+      return { start: start.toISOString(), end: end.toISOString() }
+    })()
+    let cancelled = false
+    loadConversionsInRange(createClient(), win.start, win.end)
+      .then((c) => { if (!cancelled) setConversions(c) })
+      .catch((err) => console.error('[dashboard] conversions failed:', err))
+    return () => { cancelled = true }
+  }, [range, conversionWindow])
+
   const handleRangeChange = useCallback(
     (r: RangeDays) => {
+      setConversionWindow(null)
       setRange(r)
-      if (series[r] !== null) return
+      // "Hoje" (1) não tinha posição no estado inicial: undefined !== null fazia a busca
+      // ser pulada e o gráfico ficava travado. Só pula quando já há dados carregados.
+      if (Array.isArray(series[r])) return
       setSeriesLoading(true)
       const db = createClient()
       loadConversationsSeries(db, r)
@@ -112,6 +134,7 @@ export default function DashboardPage() {
     if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end < start) return
     end.setDate(end.getDate() + 1)
     const days = Math.max(1, Math.round((end.getTime() - start.getTime()) / 86_400_000))
+    setConversionWindow({ start: start.toISOString(), end: end.toISOString() })
     setRange(days)
     setSeriesLoading(true)
     void loadConversationsSeries(createClient(), days, start.toISOString(), end.toISOString())
@@ -190,15 +213,17 @@ export default function DashboardPage() {
               subtitle={`${metrics.openDealsCount} ${t('open_deals')}`}
             />
             <MetricCard
-              title={t('tracked_conversions_today')}
-              value={metrics.trackedConversionsToday.current.toLocaleString()}
+              title={range === 1 && !conversionWindow ? 'Conversões hoje' : 'Conversões no período'}
+              value={(conversions?.current ?? metrics.trackedConversionsToday.current).toLocaleString()}
               icon={Target}
               delta={{
-                sign: metrics.trackedConversionsToday.current - metrics.trackedConversionsToday.previous,
-                label: deltaLabel(
-                  metrics.trackedConversionsToday.current - metrics.trackedConversionsToday.previous,
-                  t('vs_yesterday'),
-                ),
+                sign: (conversions?.current ?? 0) - (conversions?.previous ?? 0),
+                label: conversions
+                  ? `${conversions.sales} venda${conversions.sales === 1 ? '' : 's'} · ${deltaLabel(conversions.current - conversions.previous, 'vs período anterior')}`
+                  : deltaLabel(
+                      metrics.trackedConversionsToday.current - metrics.trackedConversionsToday.previous,
+                      t('vs_yesterday'),
+                    ),
               }}
             />
           </>

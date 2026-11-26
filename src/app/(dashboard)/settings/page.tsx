@@ -17,6 +17,7 @@ import FlowsPage from '@/app/(dashboard)/flows/page';
 import { ProductsSettings } from '@/components/settings/products-settings';
 import { TemplateManager } from '@/components/settings/template-manager';
 import { FieldsAndTagsPanel } from '@/components/settings/fields-and-tags-panel';
+import { ConversionSettings } from '@/components/settings/conversion-settings';
 import { DealsSettings } from '@/components/settings/deals-settings';
 import { MembersTab } from '@/components/settings/members-tab';
 import { FeaturesTab } from '@/components/settings/features-tab';
@@ -65,6 +66,7 @@ export default function SettingsPage() {
     appearance: <AppearancePanel />,
     whatsapp: <WhatsAppSettingsHub />,
     integrations: <IntegrationsPage />,
+    conversions: <ConversionSettings />,
     broadcasts: <BroadcastsPage />,
     products: <ProductsSettings />,
     flows: <FlowsPage />,

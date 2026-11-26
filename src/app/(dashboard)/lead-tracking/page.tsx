@@ -386,100 +386,14 @@ export default function LeadTrackingPage() {
         </section>
       </div>
 
-      <section className="rounded-2xl border bg-card p-5">
-        <div>
-          <h2 className="font-semibold">Enviar conversões aos anúncios</h2>
-          <p className="text-xs text-muted-foreground">
-            O CRM envia a conversão quando o status do lead muda para
-            Qualificado, Oportunidade ou Cliente.
-          </p>
-        </div>
-
-        <div className="mt-5 grid gap-5 lg:grid-cols-2">
-          <div className="space-y-3 rounded-xl border p-4">
-            <div className="flex justify-between gap-3">
-              <div>
-                <strong>Meta Conversions API</strong>
-                <p className="text-xs text-muted-foreground">
-                  Dataset/Pixel, token da CAPI e evento enviado.
-                </p>
-              </div>
-              <Switch
-                checked={settings.meta_enabled}
-                onCheckedChange={(value) => set("meta_enabled", value)}
-                disabled={!canEdit}
-              />
-            </div>
-            <Field
-              label="ID do conjunto de dados ou Pixel"
-              value={settings.meta_pixel_id}
-              onChange={(value) => set("meta_pixel_id", value)}
-              disabled={!canEdit}
-              placeholder="123456789012345"
-            />
-            <div>
-              <Label>Mapeamento automático</Label>
-              <div className="mt-1 rounded-lg border bg-background px-3 py-2 text-xs text-muted-foreground">
-                Desqualificado → DisqualifiedLead · Qualificado → QualifiedLead · Cliente → Purchase
-              </div>
-            </div>
-            <SecretField
-              label="Token de acesso da Conversions API"
-              value={settings.meta_token}
-              onChange={(value) => set("meta_token", value)}
-              saved={settings.has_meta_token}
-              disabled={!canEdit}
-            />
-          </div>
-
-          <div className="space-y-3 rounded-xl border p-4">
-            <div className="flex justify-between gap-3">
-              <div>
-                <strong>Conversões do Google Ads</strong>
-                <p className="text-xs text-muted-foreground">
-                  Envio pelo Google Data Manager API para a ação escolhida.
-                </p>
-              </div>
-              <Switch
-                checked={settings.google_enabled}
-                onCheckedChange={(value) => set("google_enabled", value)}
-                disabled={!canEdit}
-              />
-            </div>
-            <Field
-              label="ID da conta do Google Ads"
-              value={settings.google_customer_id}
-              onChange={(value) => set("google_customer_id", value)}
-              disabled={!canEdit}
-              placeholder="1234567890"
-            />
-            <Field
-              label="ID da ação de conversão"
-              value={settings.google_conversion_action}
-              onChange={(value) => set("google_conversion_action", value)}
-              disabled={!canEdit}
-              placeholder="987654321"
-            />
-            <SecretField
-              label="Token OAuth com acesso ao Google Ads"
-              value={settings.google_token}
-              onChange={(value) => set("google_token", value)}
-              saved={settings.has_google_token}
-              disabled={!canEdit}
-            />
-            <p className="text-xs text-amber-400">
-              A conta precisa ter uma ação de conversão para importação de
-              cliques e o lead precisa chegar com GCLID.
-            </p>
-          </div>
-        </div>
-
-        <div className="mt-5 flex justify-end">
-          <Button onClick={save} disabled={!canEdit || saving}>
-            <Save className="h-4 w-4" />
-            {saving ? "Salvando..." : "Salvar configurações"}
-          </Button>
-        </div>
+      <section className="rounded-2xl border bg-card p-5 text-sm">
+        <h2 className="font-semibold">Enviar conversões aos anúncios</h2>
+        <p className="mt-1 text-xs text-muted-foreground">
+          O Pixel/Dataset da Meta e o Google Ads agora ficam em{" "}
+          <a href="/configuracoes?tab=conversoes" className="font-medium text-primary underline">
+            Configurações › Conversões dos anúncios
+          </a>.
+        </p>
       </section>
 
       <Dialog open={closingLeadId !== null} onOpenChange={(open) => !open && setClosingLeadId(null)}>
